@@ -1,6 +1,13 @@
 /**
  * Live smoke for B15: cmd /c start Grok <handback.cmd>
  * Marker file proves the .cmd body ran (not a blank window).
+ *
+ * **Grok Build-only.** src/daemon/relaunch-tui.ts's auto-relaunch-into-a-
+ * terminal path (what this smoke tests) is unchanged Grok-specific code,
+ * deliberately left inert by default on the deepseek-acp backend rather than
+ * adapted — see release()'s doc comment in session-manager.ts and README
+ * "Known gaps". This still tests real, present code; it just isn't exercised
+ * by default any more.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';

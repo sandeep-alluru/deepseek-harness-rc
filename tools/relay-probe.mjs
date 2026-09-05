@@ -6,6 +6,11 @@
  * up in `--help` with an empty description. This stands up a throwaway
  * WebSocket server, points the agent at it, and records exactly what the agent
  * does: the HTTP upgrade path, headers, subprotocol, and every frame.
+ * **Grok Build-only.** `deepseek-acp` has no outbound-relay mode of its own — dshrc's own relay/ daemon is the only outbound path on this backend. No `deepseek-acp` equivalent exists to probe
+ * here — kept as historical research rather than adapted into something
+ * fictional. See docs/BACKLOG.md and README "Known gaps" for what this
+ * fork's current backend actually needs.
+
  *
  *   node tools/relay-probe.mjs [--seconds 20]
  *

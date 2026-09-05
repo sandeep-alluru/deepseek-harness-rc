@@ -316,7 +316,7 @@ export const GUARDS = [
     file: 'src/daemon/events.ts',
     find: "    case 'turn_completed':",
     replace: "    case '__disabled_turn_completed':",
-    // Not a node:test file: this one drives a REAL grok and compares it against
+    // Not a node:test file: this one drives a REAL agent and compares it against
     // the pinned protocol surface. That is the point — it is the only check in
     // this repo that can notice the live agent and the mock parting ways.
     test: 'tools/acp-conformance.mjs',

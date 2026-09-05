@@ -4,11 +4,11 @@
  *
  * Portable replacement for tools/stranger-check.sh so Windows is not excluded
  * from the first-run check — first-run is exactly where Windows differs most
- * (Grok not on PATH after install; no login yet).
+ * (deepseek-acp not on PATH after install; no credential yet).
  *
  * ISOLATED HERE (everything dshrc actually reads):
- *   HOME / USERPROFILE   fresh empty dir  -> no ~/.grok, ~/.dshrc
- *   PATH                 system only      -> no grok, no author-installed bins
+ *   HOME / USERPROFILE   fresh empty dir  -> no ~/.dsh, ~/.dshrc
+ *   PATH                 system only      -> no deepseek-acp, no author-installed bins
  *   npm cache / prefix   fresh            -> nothing warmed
  *
  * NOT ISOLATED:
@@ -62,7 +62,7 @@ function head(text, n = 6) {
     .join('\n');
 }
 
-/** Minimal PATH so author tools (including grok) do not leak in. */
+/** Minimal PATH so author tools (including deepseek-acp) do not leak in. */
 function systemPath() {
   if (IS_WIN) {
     const windir = process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows';
@@ -93,11 +93,15 @@ function run(cmd, cmdArgs, env, opts = {}) {
   };
 }
 
-function whichGrokOnRealMachine() {
-  const r = spawnSync(IS_WIN ? 'where.exe' : 'command', IS_WIN ? ['grok'] : ['-v', 'grok'], {
-    encoding: 'utf8',
-    shell: false,
-  });
+function whichAgentOnRealMachine() {
+  const r = spawnSync(
+    IS_WIN ? 'where.exe' : 'command',
+    IS_WIN ? ['deepseek-acp'] : ['-v', 'deepseek-acp'],
+    {
+      encoding: 'utf8',
+      shell: false,
+    }
+  );
   const line = (r.stdout ?? '')
     .split(/\r?\n/)
     .map((s) => s.trim())
@@ -105,7 +109,7 @@ function whichGrokOnRealMachine() {
   return line && existsSync(line) ? line : null;
 }
 
-const realGrok = whichGrokOnRealMachine();
+const realAgent = whichAgentOnRealMachine();
 const sandbox = mkdtempSync(join(tmpdir(), 'dshrc-stranger-'));
 const npmCache = join(sandbox, '.npm');
 const npmPrefix = join(sandbox, '.local');
@@ -130,11 +134,11 @@ const env = {
   APPDATA: join(sandbox, 'AppData', 'Roaming'),
   LOCALAPPDATA: join(sandbox, 'AppData', 'Local'),
 };
-delete env.GROK_HOME;
+delete env.DSH_HOME;
 delete env.DSHRC_HOME;
 // Ensure node/npm remain reachable: re-append their directories after the
-// stripped PATH. Isolating from grok is the goal; isolating from node would
-// make the check measure nothing.
+// stripped PATH. Isolating from deepseek-acp is the goal; isolating from node
+// would make the check measure nothing.
 const nodeDir = dirname(process.execPath);
 const npmPath = run(IS_WIN ? 'where.exe' : 'command', IS_WIN ? ['npm'] : ['-v', 'npm'], {
   ...process.env,
@@ -152,16 +156,21 @@ console.log(`  node ${process.version}, platform ${process.platform}`);
 console.log('');
 
 // ── the machine really is bare ──────────────────────────────────────────────
-const grokLeak = run(IS_WIN ? 'where.exe' : 'command', IS_WIN ? ['grok'] : ['-v', 'grok'], env);
-const foundGrok = (grokLeak.out || '')
+const agentLeak = run(
+  IS_WIN ? 'where.exe' : 'command',
+  IS_WIN ? ['deepseek-acp'] : ['-v', 'deepseek-acp'],
+  env
+);
+const foundAgent = (agentLeak.out || '')
   .split(/\r?\n/)
   .map((s) => s.trim())
   .find(Boolean);
-if (!foundGrok || grokLeak.code !== 0) ok("grok is NOT installed (as a stranger's would be)");
-else bad('grok leaked into the sandbox PATH', foundGrok);
+if (!foundAgent || agentLeak.code !== 0)
+  ok("deepseek-acp is NOT installed (as a stranger's would be)");
+else bad('deepseek-acp leaked into the sandbox PATH', foundAgent);
 
-if (!existsSync(join(sandbox, '.grok'))) ok('no Grok credentials in HOME');
-else bad('~/.grok leaked in');
+if (!existsSync(join(sandbox, '.dsh'))) ok('no DeepSeek credentials in HOME');
+else bad('~/.dsh leaked in');
 if (!existsSync(join(sandbox, '.dshrc'))) ok('no dshrc config in HOME');
 else bad('~/.dshrc leaked in');
 
@@ -239,16 +248,16 @@ if (installTarget) {
     return run(dshrcBin, cliArgs, e, { timeout });
   };
 
-  // ── with NO grok ──────────────────────────────────────────────────────────
+  // ── with NO deepseek-acp ──────────────────────────────────────────────────────────
   console.log('');
-  console.log('  --- with NO grok installed ---');
+  console.log('  --- with NO deepseek-acp installed ---');
   const doc = runDshrc(['doctor']);
   console.log(head(doc.out));
-  if (/not found|no grok|install/i.test(doc.out)) ok('doctor names the missing dependency');
-  else bad('doctor does not tell a stranger that grok is missing', doc.out);
+  if (/not found|no deepseek-acp|install/i.test(doc.out)) ok('doctor names the missing dependency');
+  else bad('doctor does not tell a stranger that deepseek-acp is missing', doc.out);
   if (
     /Error:|ERR_[A-Z]+|Cannot find module|at Object\./.test(doc.out) &&
-    !/grok not found/i.test(doc.out)
+    !/deepseek-acp not found/i.test(doc.out)
   ) {
     bad('doctor leaked a stack trace instead of a message');
   } else {
@@ -257,22 +266,26 @@ if (installTarget) {
 
   const up = runDshrc(['up', '--port', '4498'], env, 25_000);
   console.log(head(up.out));
-  if (/grok (was )?not found|not found on PATH|install: curl/i.test(up.out)) {
+  if (
+    /deepseek-acp (was )?not found|not found on PATH|install: npm install -g deepseek-acp/i.test(
+      up.out
+    )
+  ) {
     ok('up explains the missing dependency');
   } else {
     bad('up does not explain what is missing', up.out);
   }
 
-  // ── with grok present but not logged in (or logged in under sandbox) ─────
+  // ── with deepseek-acp present but not logged in (or logged in under sandbox) ─
   console.log('');
-  console.log('  --- with grok present ---');
-  if (realGrok) {
+  console.log('  --- with deepseek-acp present ---');
+  if (realAgent) {
     mkdirSync(npmBin, { recursive: true });
-    const linkName = join(npmBin, IS_WIN ? 'grok.exe' : 'grok');
+    const linkName = join(npmBin, IS_WIN ? 'deepseek-acp.exe' : 'deepseek-acp');
     try {
-      if (IS_WIN) copyFileSync(realGrok, linkName);
+      if (IS_WIN) copyFileSync(realAgent, linkName);
       else {
-        symlinkSync(realGrok, linkName);
+        symlinkSync(realAgent, linkName);
         try {
           chmodSync(linkName, 0o755);
         } catch {
@@ -280,29 +293,30 @@ if (installTarget) {
         }
       }
     } catch (err) {
-      // copy may fail for some reasons; put realGrok's dir on PATH instead
-      console.log(`      (could not copy grok: ${err.message}; putting real dir on PATH)`);
+      // copy may fail for some reasons; put realAgent's dir on PATH instead
+      console.log(`      (could not copy deepseek-acp: ${err.message}; putting real dir on PATH)`);
     }
-    const envWithGrok = {
+    const envWithAgent = {
       ...env,
-      PATH: `${npmBin}${delimiter}${dirname(realGrok)}${delimiter}${env.PATH}`,
+      PATH: `${npmBin}${delimiter}${dirname(realAgent)}${delimiter}${env.PATH}`,
       // Force no credentials in sandbox even if copy failed oddly
       HOME: sandbox,
       USERPROFILE: sandbox,
-      GROK_HOME: join(sandbox, '.grok-empty-should-not-exist'),
+      DSH_HOME: join(sandbox, '.dsh-empty-should-not-exist'),
     };
-    delete envWithGrok.GROK_HOME;
+    delete envWithAgent.DSH_HOME;
 
-    const doc2 = runDshrc(['doctor'], envWithGrok);
+    const doc2 = runDshrc(['doctor'], envWithAgent);
     console.log(head(doc2.out));
-    if (/grok found/i.test(doc2.out)) ok('doctor finds grok once it is installed');
-    else bad('doctor cannot see a grok that is on PATH', doc2.out);
+    if (/deepseek-acp found/i.test(doc2.out)) ok('doctor finds deepseek-acp once it is installed');
+    else bad('doctor cannot see a deepseek-acp that is on PATH', doc2.out);
 
-    // If the real machine has auth, doctor may pass the login check. That is
-    // still fine: the stranger PATH has grok, but HOME is empty so auth should
-    // fail unless grok stores credentials outside HOME (it uses GROK_HOME/HOME).
-    if (/grok login|run .grok login|sign in with .grok|not logged|not signed/i.test(doc2.out)) {
-      ok('doctor tells a logged-out user to run `grok login`');
+    // If the real machine has credentials, doctor may pass the auth check. That
+    // is still fine: the stranger PATH has deepseek-acp, but HOME is empty so
+    // auth should fail unless deepseek-acp stores credentials outside HOME (it
+    // uses DSH_HOME/HOME).
+    if (/deepseek-acp --setup|export DEEPSEEK_API_KEY|missing_credential/i.test(doc2.out)) {
+      ok('doctor tells a logged-out user to run `deepseek-acp --setup`');
     } else if (/agent|ACP|ready|ok/i.test(doc2.out) && !/not found/i.test(doc2.out)) {
       // Credentials may have been found via something other than HOME — report honestly
       ok('doctor reaches the agent (credentials available outside sandbox HOME — noted)');
@@ -310,7 +324,7 @@ if (installTarget) {
       bad("doctor passes the agent's raw auth error through without saying what to do", doc2.out);
     }
   } else {
-    console.log('      (no grok binary on the real machine — skipped login checks)');
+    console.log('      (no deepseek-acp binary on the real machine — skipped login checks)');
   }
 
   // ── required configuration ────────────────────────────────────────────────

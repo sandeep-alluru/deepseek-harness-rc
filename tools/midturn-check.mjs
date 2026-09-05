@@ -22,7 +22,7 @@ if (await skipWithoutAgent('mid-turn recovery check')) process.exit(0);
 const { note, finish } = reporter();
 
 await isolatedGrokHome({ prompting: false });
-const daemon = await bootDaemon(); // REAL grok
+const daemon = await bootDaemon(); // REAL deepseek-acp
 
 const cwd = process.env.MIDTURN_CWD ?? (await import('node:os')).tmpdir();
 const info = await daemon.sessions.create(cwd, { title: 'midturn' });

@@ -2,6 +2,11 @@
 /**
  * Try forcing Grok 1.0 permission prompts via CLI flag:
  *   grok --permission-mode default agent stdio
+ * **Grok Build-only.** `deepseek-acp` has no `--permission-mode` flag to force — there is nothing to bypass in the first place. No `deepseek-acp` equivalent exists to probe
+ * here — kept as historical research rather than adapted into something
+ * fictional. See docs/BACKLOG.md and README "Known gaps" for what this
+ * fork's current backend actually needs.
+
  */
 import { spawn } from 'node:child_process';
 import { copyFile, mkdtemp, writeFile, readFile } from 'node:fs/promises';

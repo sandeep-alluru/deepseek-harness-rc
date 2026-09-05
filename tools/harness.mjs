@@ -107,12 +107,12 @@ export const isolatedGrokHome = isolatedDshHome;
 /**
  * Boot a real daemon on an ephemeral port with isolated pairing state.
  *
- * `transportFactory` is passed straight through: omit it for a REAL grok agent,
+ * `transportFactory` is passed straight through: omit it for a REAL deepseek-acp agent,
  * supply one to replay captures. The caller decides — this module does not
  * choose a fake on anyone's behalf.
  */
 /**
- * Is a real Grok Build installed?
+ * Is `deepseek-acp` installed?
  *
  * The real-stack checks drive an actual agent. On a machine without one — every
  * CI runner — they cannot pass, and failing there says nothing about the

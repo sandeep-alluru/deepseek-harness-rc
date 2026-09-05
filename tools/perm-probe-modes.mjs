@@ -2,6 +2,11 @@
 /**
  * B4 — try every Grok 1.0 permission-mode CLI value and record whether
  * session/request_permission ever appears for a write turn.
+ * **Grok Build-only.** `deepseek-acp` has no `--permission-mode`-style flag or config bypass at all — it always prompts (see SECURITY.md). No `deepseek-acp` equivalent exists to probe
+ * here — kept as historical research rather than adapted into something
+ * fictional. See docs/BACKLOG.md and README "Known gaps" for what this
+ * fork's current backend actually needs.
+
  *
  * Isolated GROK_HOME each mode. Writes docs/captures/perm-modes.json.
  *

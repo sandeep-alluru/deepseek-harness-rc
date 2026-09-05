@@ -10,7 +10,8 @@
  * Proves: a genuine `session/request_permission` arrives, is answered from a
  * remote client, and the agent then writes the file.
  *
- * Uses an isolated GROK_HOME with prompting enabled, because Grok does not ask
+ * Uses an isolated DSH_HOME (via isolatedGrokHome, an alias for isolatedDshHome).
+ * This project's Grok Build ancestor also needed `prompting: true` because Grok does not ask
  * by default (`[features] support_permission = false`). Neither key takes
  * effect from a project `.grok/config.toml` — so we never edit the owner's
  * real config.
@@ -26,7 +27,7 @@ const { note, finish } = reporter();
 const capture = { events: [], approvals: [], transcript: [] };
 
 await isolatedGrokHome({ prompting: true });
-const daemon = await bootDaemon(); // REAL grok, prompting on
+const daemon = await bootDaemon(); // REAL deepseek-acp, prompting on
 const token = await pairDevice(daemon.base, daemon.auth, 'e2e-phone');
 console.log(`✓ paired (token ${token.slice(0, 12)}…)`);
 

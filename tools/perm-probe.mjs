@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
  * Live probe: does Grok 1.0 emit session/request_permission for a write turn?
+ * **Grok Build-only.** Grok Build's own config.toml could silently disable session/request_permission entirely — see this project's SECURITY.md history. No `deepseek-acp` equivalent exists to probe
+ * here — kept as historical research rather than adapted into something
+ * fictional. See docs/BACKLOG.md and README "Known gaps" for what this
+ * fork's current backend actually needs.
+
  *
  * Isolated GROK_HOME with support_permission=true, writeTextFile capability OFF
  * (advertising write is the known silent approval bypass).

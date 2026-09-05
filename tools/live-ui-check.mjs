@@ -26,10 +26,10 @@ import {
 const { note, problems, finish } = reporter();
 if (await skipWithoutAgent('live UI check')) process.exit(0);
 
-// Own GROK_HOME: a real agent writes session history that outlives this
-// run, and it must not land in the owner's ~/.grok.
+// Own DSH_HOME (via isolatedGrokHome, an alias for isolatedDshHome): a real agent writes session history that outlives this
+// run, and it must not land in the owner's ~/.dsh.
 await isolatedGrokHome({ prompting: false });
-const daemon = await bootDaemon(); // no transportFactory ⇒ REAL grok
+const daemon = await bootDaemon(); // no transportFactory ⇒ REAL deepseek-acp
 const ui = await pairedPage({ base: daemon.base, auth: daemon.auth });
 const { page } = ui;
 

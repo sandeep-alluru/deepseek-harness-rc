@@ -1,4 +1,13 @@
 #!/usr/bin/env node
+/**
+ * Dumps Grok Build's proprietary `_x.ai/settings/update` push notification —
+ * a vendor-specific ACP extension, not part of the ACP spec.
+ *
+ * **Grok Build-only.** `deepseek-acp` has no settings-push mechanism to dump:
+ * it has no runtime-configurable permission bypass at all (see SECURITY.md),
+ * so there is nothing here for it to push. Kept as historical research rather
+ * than adapted into something fictional.
+ */
 import { spawn } from 'node:child_process';
 import { copyFile, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';

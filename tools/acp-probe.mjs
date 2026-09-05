@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 /**
- * ACP protocol probe — captures Grok Build's real ACP wire behaviour.
+ * ACP protocol probe — captures the real agent's ACP wire behaviour.
  *
- * Spawns `grok agent stdio`, performs the handshake, and records every frame
- * to docs/captures/. We build against observed behaviour, not documentation.
+ * Spawns the agent binary (default `deepseek-acp`, no args — that is what runs
+ * it as an ACP service; pass --command to probe a different binary, e.g. a
+ * Grok Build install, which additionally needs `agent stdio` args), performs
+ * the handshake, and records every frame to docs/captures/. We build against
+ * observed behaviour, not documentation.
  *
- *   node tools/acp-probe.mjs                 # handshake + session/new only (no model call)
- *   node tools/acp-probe.mjs --prompt "hi"   # also runs one prompt turn (costs tokens)
+ *   node tools/acp-probe.mjs                                    # handshake + session/new only (no model call)
+ *   node tools/acp-probe.mjs --prompt "hi"                      # also runs one prompt turn (costs tokens)
+ *   node tools/acp-probe.mjs --command grok --arg agent --arg stdio   # probe a different agent binary
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -18,11 +22,14 @@ const OUT_DIR = resolve(ROOT, 'docs/captures');
 const argv = process.argv.slice(2);
 const promptIdx = argv.indexOf('--prompt');
 const PROMPT = promptIdx !== -1 ? argv[promptIdx + 1] : null;
+const commandIdx = argv.indexOf('--command');
+const COMMAND = commandIdx !== -1 ? argv[commandIdx + 1] : 'deepseek-acp';
+const EXTRA_ARGS = argv.flatMap((a, i) => (a === '--arg' ? [argv[i + 1]] : [])).filter(Boolean);
 
 const frames = [];
 const record = (dir, payload) => frames.push({ t: Date.now(), dir, payload });
 
-const child = spawn('grok', ['agent', 'stdio'], {
+const child = spawn(COMMAND, EXTRA_ARGS, {
   stdio: ['pipe', 'pipe', 'pipe'],
   cwd: ROOT,
 });
@@ -102,7 +109,7 @@ function dump(label) {
   writeFileSync(
     file,
     JSON.stringify(
-      { grokVersion: process.env.GROK_VERSION ?? null, frames, stderr: stderrBuf },
+      { agentCommand: COMMAND, agentArgs: EXTRA_ARGS, frames, stderr: stderrBuf },
       null,
       2
     )
@@ -131,7 +138,11 @@ function dump(label) {
       });
       console.log('   stopReason:', turn?.stopReason);
     }
-    dump(PROMPT ? 'prompt-turn' : 'handshake');
+    // Default label carries the command name so a deepseek-acp run never
+    // silently overwrites the historical grok-0.2.118 capture this file's
+    // types were originally derived from (src/acp/protocol.ts cites it).
+    const label = `${COMMAND.replace(/[^a-z0-9-]/gi, '_')}-${PROMPT ? 'prompt-turn' : 'handshake'}`;
+    dump(COMMAND === 'grok' ? (PROMPT ? 'prompt-turn' : 'handshake') : label);
     child.kill();
     process.exit(0);
   } catch (err) {

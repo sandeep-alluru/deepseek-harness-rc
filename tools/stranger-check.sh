@@ -3,12 +3,13 @@
 # Install dshrc the way someone who has never seen this machine would.
 #
 # The earlier "clean install" check was not clean: it ran as the author, with
-# grok already on PATH, ~/.grok/auth.json already present, and ~/.dshrc/config.json
-# already written. `dshrc doctor` passed because of the machine, not the package.
+# deepseek-acp already on PATH, ~/.dsh/.credentials.yaml already present, and
+# ~/.dshrc/config.json already written. `dshrc doctor` passed because of the
+# machine, not the package.
 #
 # ISOLATED HERE (everything dshrc actually reads):
-#   HOME          fresh empty dir  -> no ~/.grok, ~/.dshrc, ~/.npmrc, no history
-#   PATH          system only      -> no grok, no author-installed binaries
+#   HOME          fresh empty dir  -> no ~/.dsh, ~/.dshrc, ~/.npmrc, no history
+#   PATH          system only      -> no deepseek-acp, no author-installed binaries
 #   npm cache     fresh            -> nothing warmed
 #
 # NOT ISOLATED (no user namespaces on this kernel; bwrap and unshare are denied):
@@ -24,7 +25,7 @@ ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }
 bad()  { echo "  ✗ $1"; [ -n "${2:-}" ] && echo "      $2"; FAIL=$((FAIL+1)); }
 head2() { sed -n '1,6p' | sed 's/^/      /'; }
 
-REAL_GROK_DIR=$(dirname "$(command -v grok 2>/dev/null || echo /nonexistent/grok)")
+REAL_AGENT_DIR=$(dirname "$(command -v deepseek-acp 2>/dev/null || echo /nonexistent/deepseek-acp)")
 
 SB=$(mktemp -d /tmp/dshrc-stranger-XXXXXX)
 export HOME="$SB"
@@ -32,7 +33,7 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export npm_config_cache="$SB/.npm"
 export npm_config_prefix="$SB/.local"
 export XDG_CONFIG_HOME="$SB/.config" XDG_DATA_HOME="$SB/.local/share"
-unset GROK_HOME DSHRC_HOME
+unset DSH_HOME DSHRC_HOME
 mkdir -p "$SB/.local" "$SB/projects"
 cd "$SB" || exit 1
 
@@ -42,9 +43,9 @@ echo "  node $(node -v 2>&1), npm $(npm -v 2>&1)"
 echo
 
 # ── the machine really is bare ────────────────────────────────────────────────
-[ -z "$(command -v grok)" ] && ok "grok is NOT installed (as a stranger's would be)" \
-  || bad "grok leaked into the sandbox PATH" "$(command -v grok)"
-[ ! -e "$HOME/.grok" ]   && ok "no Grok credentials in HOME"   || bad "~/.grok leaked in"
+[ -z "$(command -v deepseek-acp)" ] && ok "deepseek-acp is NOT installed (as a stranger's would be)" \
+  || bad "deepseek-acp leaked into the sandbox PATH" "$(command -v deepseek-acp)"
+[ ! -e "$HOME/.dsh" ]   && ok "no DeepSeek credentials in HOME"   || bad "~/.dsh leaked in"
 [ ! -e "$HOME/.dshrc" ] && ok "no dshrc config in HOME"      || bad "~/.dshrc leaked in"
 
 # ── install exactly as the README says ────────────────────────────────────────
@@ -60,44 +61,44 @@ BIN="$SB/.local/bin/dshrc"
 [ -x "$BIN" ] && ok "dshrc binary is on the prefix" || bad "no dshrc binary produced"
 [ -d "$SB/.local/lib/node_modules/dshrc/web" ] && ok "the PWA shipped with it" || bad "web/ missing from the package"
 
-# ── does it behave without Grok installed? ────────────────────────────────────
+# ── does it behave without deepseek-acp installed? ────────────────────────────
 echo
-echo "  --- with NO grok installed ---"
+echo "  --- with NO deepseek-acp installed ---"
 DOC=$("$BIN" doctor 2>&1)
 echo "$DOC" | head2
-if echo "$DOC" | grep -qiE "not found|no grok|install"; then
+if echo "$DOC" | grep -qiE "not found|no deepseek-acp|install"; then
   ok "doctor names the missing dependency"
 else
-  bad "doctor does not tell a stranger that grok is missing"
+  bad "doctor does not tell a stranger that deepseek-acp is missing"
 fi
 echo "$DOC" | grep -qiE "Error:|ERR_|stack|Cannot find module" \
   && bad "doctor leaked a stack trace instead of a message" || ok "doctor fails cleanly, no stack trace"
 
 UP=$(timeout 25 "$BIN" up --port 4498 2>&1)
 echo "$UP" | head2
-# STRICT: must name the missing binary, not merely contain the word "grok"
+# STRICT: must name the missing binary, not merely contain the word "deepseek-acp"
 # somewhere in an unrelated warning — which is how this check first passed.
-echo "$UP" | grep -qiE "grok (was )?not found|not found on PATH|install: curl" \
+echo "$UP" | grep -qiE "deepseek-acp (was )?not found|not found on PATH|install: npm install -g deepseek-acp" \
   && ok "up explains the missing dependency" || bad "up does not explain what is missing"
 
-# ── with grok present but nobody logged in ────────────────────────────────────
+# ── with deepseek-acp present but no credentials ──────────────────────────────
 echo
-echo "  --- with grok present but NOT logged in ---"
+echo "  --- with deepseek-acp present but NOT logged in ---"
 mkdir -p "$SB/.local/bin"
-if [ -x "$REAL_GROK_DIR/grok" ]; then
-  ln -sf "$REAL_GROK_DIR/grok" "$SB/.local/bin/grok"
+if [ -x "$REAL_AGENT_DIR/deepseek-acp" ]; then
+  ln -sf "$REAL_AGENT_DIR/deepseek-acp" "$SB/.local/bin/deepseek-acp"
   export PATH="$SB/.local/bin:$PATH"
   DOC2=$("$BIN" doctor 2>&1)
   echo "$DOC2" | head2
-  echo "$DOC2" | grep -qi "grok found" && ok "doctor finds grok once it is installed" \
-    || bad "doctor cannot see a grok that is on PATH"
+  echo "$DOC2" | grep -qi "deepseek-acp found" && ok "doctor finds deepseek-acp once it is installed" \
+    || bad "doctor cannot see a deepseek-acp that is on PATH"
   # STRICT: dshrc must TELL the user what to run. Matching "auth" inside the
-  # agent's own "Authentication required (-32000)" is the agent talking, not us.
-  echo "$DOC2" | grep -qiE "grok login|run .grok login|sign in with .grok" \
-    && ok "doctor tells a logged-out user to run \`grok login\`" \
+  # agent's own "MISSING_CREDENTIAL" error is the agent talking, not us.
+  echo "$DOC2" | grep -qiE "deepseek-acp --setup|export DEEPSEEK_API_KEY" \
+    && ok "doctor tells a logged-out user to run \`deepseek-acp --setup\`" \
     || bad "doctor passes the agent's raw auth error through without saying what to do"
 else
-  echo "      (no grok binary to link — skipped, denominator 2 checks)"
+  echo "      (no deepseek-acp binary to link — skipped, denominator 2 checks)"
 fi
 
 # ── the one required setting ──────────────────────────────────────────────────

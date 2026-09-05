@@ -1,0 +1,226 @@
+{
+  "agentCommand": "deepseek-acp",
+  "agentArgs": [],
+  "frames": [
+    {
+      "t": 1788642268412,
+      "dir": "out",
+      "payload": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+          "protocolVersion": 1,
+          "clientCapabilities": {
+            "fs": {
+              "readTextFile": true,
+              "writeTextFile": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "t": 1788642269077,
+      "dir": "in",
+      "payload": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+          "protocolVersion": 1,
+          "agentInfo": {
+            "name": "deepseek-acp",
+            "version": "0.8.0"
+          },
+          "agentCapabilities": {
+            "promptCapabilities": {
+              "image": true,
+              "audio": false,
+              "embeddedContext": true
+            },
+            "mcpCapabilities": {
+              "http": true,
+              "sse": false,
+              "acp": false
+            },
+            "sessionCapabilities": {
+              "close": {},
+              "fork": {},
+              "list": {},
+              "resume": {}
+            },
+            "providers": {},
+            "loadSession": true
+          },
+          "authMethods": []
+        }
+      }
+    },
+    {
+      "t": 1788642269078,
+      "dir": "out",
+      "payload": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "session/new",
+        "params": {
+          "cwd": "/home/clawer-samurai-1/AgentHub/deepseek-harness-rc",
+          "mcpServers": []
+        }
+      }
+    },
+    {
+      "t": 1788642269162,
+      "dir": "in",
+      "payload": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {
+          "sessionId": "7003989b-f888-4ddc-8f1a-340dbc55a2b7",
+          "configOptions": [
+            {
+              "type": "select",
+              "id": "model",
+              "name": "模型",
+              "category": "model",
+              "currentValue": "deepseek-official::deepseek-v4-flash",
+              "options": [
+                {
+                  "group": "deepseek-official",
+                  "name": "DeepSeek",
+                  "options": [
+                    {
+                      "value": "deepseek-official::deepseek-v4-flash",
+                      "name": "DeepSeek-V4-Flash"
+                    },
+                    {
+                      "value": "deepseek-official::deepseek-v4-pro",
+                      "name": "DeepSeek-V4-Pro"
+                    },
+                    {
+                      "value": "deepseek-official::deepseek-v4-flash-vision-exp",
+                      "name": "DeepSeek-V4-Flash-Vision-Exp"
+                    }
+                  ]
+                },
+                {
+                  "group": "ornith-local",
+                  "name": "Local llama.cpp (Ornith + 8)",
+                  "options": [
+                    {
+                      "value": "ornith-local::ornith-1.5-9b",
+                      "name": "Ornith 1.5 9B"
+                    },
+                    {
+                      "value": "ornith-local::SmolLM3-3B",
+                      "name": "SmolLM3 3B"
+                    },
+                    {
+                      "value": "ornith-local::Llama-3.2-3B-Instruct",
+                      "name": "Llama 3.2 3B Instruct"
+                    },
+                    {
+                      "value": "ornith-local::Qwen3-4B-Instruct-2507",
+                      "name": "Qwen3 4B Instruct 2507"
+                    },
+                    {
+                      "value": "ornith-local::Phi-4-mini-3.8B",
+                      "name": "Phi-4 mini 3.8B"
+                    },
+                    {
+                      "value": "ornith-local::Mistral-7B-Instruct-v0.3",
+                      "name": "Mistral 7B v0.3"
+                    },
+                    {
+                      "value": "ornith-local::Falcon3-7B-Instruct",
+                      "name": "Falcon3 7B Instruct"
+                    },
+                    {
+                      "value": "ornith-local::DeepSeek-R1-0528-Qwen3-8B",
+                      "name": "DeepSeek-R1-0528 Qwen3 8B (local)"
+                    },
+                    {
+                      "value": "ornith-local::GLM-4-9B-0414",
+                      "name": "GLM-4 9B 0414"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "select",
+              "id": "reasoning",
+              "name": "推理档位",
+              "description": "越高越慢越费 token，难题更稳",
+              "category": "model",
+              "currentValue": "high",
+              "options": [
+                {
+                  "value": "off",
+                  "name": "关闭",
+                  "description": "不做推理，直接作答；最快"
+                },
+                {
+                  "value": "low",
+                  "name": "低",
+                  "description": "略作推理；比关闭稳，比高档快"
+                },
+                {
+                  "value": "high",
+                  "name": "高",
+                  "description": "推理后作答；日常编码的默认档"
+                },
+                {
+                  "value": "max",
+                  "name": "最高",
+                  "description": "推理更久；难题更稳，但慢且更费 token"
+                }
+              ]
+            },
+            {
+              "type": "select",
+              "id": "sandbox",
+              "name": "文件权限",
+              "description": "命令与文件工具共用这一条边界",
+              "category": "mode",
+              "currentValue": "workspace-write",
+              "options": [
+                {
+                  "value": "read-only",
+                  "name": "只读",
+                  "description": "按只读策略执行；需要写入时切换权限"
+                },
+                {
+                  "value": "workspace-write",
+                  "name": "可写工作区",
+                  "description": "写入意在限制于会话工作区与系统临时目录；越界的调用会请求单次授权"
+                },
+                {
+                  "value": "danger-full-access",
+                  "name": "完全访问",
+                  "description": "不施加任何文件限制。仅在你清楚后果时选择"
+                }
+              ]
+            }
+          ],
+          "modes": {
+            "availableModes": [
+              {
+                "id": "default",
+                "name": "常规",
+                "description": "直接读写文件、执行命令完成任务"
+              },
+              {
+                "id": "plan",
+                "name": "计划",
+                "description": "先调研再给出完整方案，经你确认后才动手；这是对模型的引导，实际权限仍由「文件权限」决定"
+              }
+            ],
+            "currentModeId": "default"
+          }
+        }
+      }
+    }
+  ],
+  "stderr": "[info] deepseek-acp: client protocolVersion=1  fs.readTextFile=true  fs.writeTextFile=true  elicitation.form=（未声明）  terminal=false  _meta.terminal_output=（未声明）  auth.terminal=false  _meta.terminal-auth=（未声明）\n[warn] skill-filesystem: skill file /home/clawer-samurai-1/.agents/skills/checkpoint/SKILL.md ignored: missing YAML frontmatter\n[warn] skill-filesystem: skill file /home/clawer-samurai-1/.agents/skills/search-memory/SKILL.md ignored: missing YAML frontmatter\n"
+}

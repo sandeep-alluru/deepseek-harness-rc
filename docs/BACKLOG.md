@@ -1,6 +1,6 @@
 # dshrc — open items
 
-**0 of 6 closed.** Generated from `tools/backlog.mjs` —
+**1 of 6 closed.** Generated from `tools/backlog.mjs` —
 edit that, then run `npm run backlog -- --write`. `npm run backlog -- --check`
 fails if this file has drifted, so status cannot be claimed in one place and
 contradicted in another.
@@ -45,23 +45,24 @@ Status: `open` · `done` · `accepted` (no action intended) · `not-a-limitation
 
 **Result.** Not closed. Documented in src/daemon/observer.ts. Settling this needs either confirming zstd frame-level append-tailing works, or building a poll-and-decompress-whole-file fallback and measuring its cost on a long session. A second, related finding from live-testing tools/acp-conformance.mjs against a real deepseek-acp: it did not emit a `turn_completed` session/update notification in that run (guard turn-completion-is-understood came back UNPROVEN as a direct result). Owned sessions are unaffected — client.prompt() detects completion from the session/prompt RPC response itself, proven working end-to-end live — but observed mode has no RPC response to read, only the notification stream, so it would need its own completion signal if ever built for this backend.
 
-## D · Housekeeping  —  0/1 closed
+## D · Housekeeping  —  1/1 closed
 
 | # | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| 5 | ~15 tools/*.mjs real-stack probe scripts still say `grok`/`GROK_HOME` cosmetically | `open` | VERIFIED — grep across tools/*.mjs (resume-check.mjs, e2e-drive.mjs, leader-probe.mjs, perm-probe*.mjs, and others) still names the Grok Build binary and env var. None of these run as part of `npm test`; they are manual/CI-only real-stack tools, and `isolatedGrokHome`/`GROK_HOME` are kept as live aliases in tools/harness.mjs so they still function correctly — this item is naming accuracy, not breakage. |
+| 5 | tools/*.mjs real-stack probe scripts still said `grok`/`GROK_HOME` cosmetically | `done` | VERIFIED — grep across tools/*.mjs. Two classes turned out to be different problems: (1) generic tools (acp-probe.mjs, settings-dump.mjs → renamed; stranger-check.mjs/.sh → adapted) had no reason to stay grok-shaped. (2) five tools (perm-probe*.mjs, leader-probe.mjs, relay-probe.mjs, settings-dump.mjs) probe Grok Build mechanisms — a vendor `_x.ai/settings/update` push, a `--permission-mode` bypass flag, `agent leader`, `agent headless --grok-ws-url` — that have no deepseek-acp equivalent to port to; renaming their spawns would have made them silently test something fictional. Those five are left as-is with a clear 'Grok Build-only' header instead. |
 
-### 5 · ~15 tools/*.mjs real-stack probe scripts still say `grok`/`GROK_HOME` cosmetically
+### 5 · tools/*.mjs real-stack probe scripts still said `grok`/`GROK_HOME` cosmetically
 
-**Result.** Not closed. Lower priority than the C-section items above since nothing is broken; tracked so a contributor renaming one of these files does not have to first discover the alias exists.
+**Reanalyse — attacked.** Considered a blanket sed rename across all ~15 files as the fast close. Rejected after reading perm-probe.mjs and leader-probe.mjs: `deepseek-acp` genuinely has no `--permission-mode` flag and no leader mode, so `spawn('deepseek-acp', ['--permission-mode', mode, 'agent', 'stdio'])` would not probe anything real — it would just fail differently, and a green 'probe' that tests nothing is the exact defect this whole backlog mechanism exists to catch. Read each file individually instead.
+
+**Result.** Fixed the generic ones (tools/acp-probe.mjs now defaults to spawning deepseek-acp with a --command override for testing other agents; tools/stranger-check.mjs/.sh fully adapted and syntax-checked). Annotated the Grok-specific ones rather than breaking them. Found one real bug in the process, not merely cosmetic: tools/isolated-test.mjs — the wrapper `npm test`/`npm run test:suite` actually run through — injected GROK_HOME (an env var nothing reads any more) and snapshotted ~/.grok/sessions (the wrong path) for its leak DETECT/PREVENT mechanism, silently inert for this backend. Fixed to DSH_HOME/~/.dsh. Checked for actual harm: no leaked scratch-cwd sessions found under the real ~/.dsh — individual test files that spawn real agents already self-isolate via the already-fixed isolatedDshHome(), so the bug was latent, not exploited.
 
 ---
 
-## Still open — 6
+## Still open — 5
 
 - **#1** `discoverOnDisk()` always returns empty on the deepseek-acp backend
 - **#2** `activeOnDisk()` / Take over have no live-process registry to check on this backend
 - **#3** Observed mode assumes a plain byte-appended log; untested against dsh's compressed one
 - **#8** Android push never tested
 - **#4** Windows path-encoding for dsh session directories is unverified
-- **#5** ~15 tools/*.mjs real-stack probe scripts still say `grok`/`GROK_HOME` cosmetically

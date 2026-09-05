@@ -5,6 +5,11 @@
  * `grok agent leader` advertises "multiple clients share one backend" — the
  * capability dshrc's `--leader` flag depends on for laptop↔phone handoff, and
  * the one thing in the README that had never been exercised.
+ * **Grok Build-only.** `deepseek-acp` has no shared-backend concept — every spawned session is its own process. No `deepseek-acp` equivalent exists to probe
+ * here — kept as historical research rather than adapted into something
+ * fictional. See docs/BACKLOG.md and README "Known gaps" for what this
+ * fork's current backend actually needs.
+
  *
  * Question this answers: if client A creates a session against a shared leader,
  * can client B — a separate process — see and load that same session? If yes,
