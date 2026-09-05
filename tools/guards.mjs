@@ -155,7 +155,11 @@ export const GUARDS = [
     why: 'the version was hardcoded twice and reported 0.1.0 from a 0.1.1 build — the first thing anyone checks when a fix looks missing',
     file: 'src/daemon/server.ts',
     find: "        if (v.name === 'dshrc' && v.version) return (PKG_VERSION = v.version);",
-    replace: "        if (v.name === 'dshrc' && v.version) return (PKG_VERSION = '0.1.0');",
+    // A literal that can never coincidentally equal the real package version —
+    // '0.1.0' used to be this repo's actual version at one point, which made
+    // this mutation a silent no-op and the guard UNPROVEN for that release.
+    replace:
+      "        if (v.name === 'dshrc' && v.version) return (PKG_VERSION = '0.0.0-mutated-by-guard');",
     test: 'test/asset-version.test.ts',
   },
   {

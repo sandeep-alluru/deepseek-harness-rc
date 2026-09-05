@@ -162,13 +162,18 @@ export function exposureNotice(host: string, shown: string): string {
 async function cmdUp(flags: Flags): Promise<void> {
   // Before anything else. Starting without an agent means pairing a phone to a
   // daemon that cannot open a single session.
-  const agentCommand = typeof flags['agent-command'] === 'string' ? flags['agent-command'] : 'deepseek-acp';
+  const agentCommand =
+    typeof flags['agent-command'] === 'string' ? flags['agent-command'] : 'deepseek-acp';
   const agentVersion = await findAgent(agentCommand);
   if (!agentVersion) {
     console.log('');
     console.log(AGENT_MISSING(agentCommand));
-    console.log('    dshrc drives DeepSeek Harness via deepseek-acp — it cannot start a session without it.');
-    console.log('    After installing, either run `deepseek-acp --setup` once, or export DEEPSEEK_API_KEY.');
+    console.log(
+      '    dshrc drives DeepSeek Harness via deepseek-acp — it cannot start a session without it.'
+    );
+    console.log(
+      '    After installing, either run `deepseek-acp --setup` once, or export DEEPSEEK_API_KEY.'
+    );
     console.log('');
     process.exitCode = 1;
     return;

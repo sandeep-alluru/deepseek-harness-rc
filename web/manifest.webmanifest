@@ -1,7 +1,7 @@
 {
-  "name": "dshrc — Grok Build remote control",
+  "name": "dshrc — DeepSeek Harness remote control",
   "short_name": "dshrc",
-  "description": "Drive your Grok Build coding agent from your phone.",
+  "description": "Drive your DeepSeek Harness coding agent from your phone.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b0d10",

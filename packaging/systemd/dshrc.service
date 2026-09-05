@@ -1,7 +1,7 @@
-# dshrc — remote control for Grok Build
+# dshrc — remote control for DeepSeek Harness
 #
 # A *user* unit, deliberately, not a system one:
-#   - it needs ~/.grok/auth.json, which belongs to you, not root
+#   - it needs $DSH_HOME/.credentials.yaml, which belongs to you, not root
 #   - the agents it spawns must run as you, with your file permissions
 #   - no sudo is required to install, start, or update it
 #
@@ -12,7 +12,7 @@
 # Logs:     journalctl --user -u dshrc -f
 
 [Unit]
-Description=dshrc — remote control for Grok Build
+Description=dshrc — remote control for DeepSeek Harness
 Documentation=https://github.com/sandeep-alluru/deepseek-harness-rc
 # Bind rather than merely order: if the network goes, restart cleanly when it returns.
 After=network-online.target

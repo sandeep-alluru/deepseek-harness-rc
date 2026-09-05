@@ -81,8 +81,19 @@ export async function isolatedDshHome({ prompting: _prompting = true } = {}) {
   // `deepseek-acp` stores its credential at `$DSH_HOME/.credentials.yaml`
   // (see its README); copying it is the DeepSeek-side equivalent of the old
   // `auth.json`/`agent_id` copy.
+  //
+  // MEASURED: deepseek-acp refuses to boot if this file is readable beyond
+  // its owner — "credentials-local: ... is readable beyond its owner (mode
+  // 664)" — which is exactly the mode Node's default writeFile produces
+  // (0666 minus umask). The real `~/.dsh/.credentials.yaml` is already 0600
+  // (deepseek-acp wrote it that way itself); the copy has to match, explicitly,
+  // not by inheriting whatever the destination directory's umask happens to be.
   try {
-    await writeFile(join(home, '.credentials.yaml'), await readFile(join(real, '.credentials.yaml')));
+    await writeFile(
+      join(home, '.credentials.yaml'),
+      await readFile(join(real, '.credentials.yaml')),
+      { mode: 0o600 }
+    );
   } catch {
     /* optional — DEEPSEEK_API_KEY in the environment covers this instead */
   }

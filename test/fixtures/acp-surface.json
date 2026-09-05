@@ -1,6 +1,6 @@
 {
   "_comment": "MEASURED, never hand-edited. Regenerate with: node --experimental-strip-types tools/acp-conformance.mjs --pin  — then read the diff before committing it. Pin is a UNION across pin runs (intermittent kinds accumulate).",
-  "agent": "grok 1.0.3 (1a29d5bc12)",
+  "agent": "grok 1.0.13 (5e9a58528b76) [stable]",
   "updateKinds": [
     "agent_message_chunk",
     "agent_thought_chunk",
@@ -18,6 +18,7 @@
     "tool_call_delta_chunk",
     "tool_call_update",
     "turn_completed",
+    "usage_update",
     "user_message_chunk"
   ],
   "methods": [
@@ -46,7 +47,7 @@
     "response_completed",
     "session_info_update",
     "session_summary_generated",
-    "tool_call_delta_chunk"
+    "tool_call_delta_chunk",
+    "usage_update"
   ]
 }
-

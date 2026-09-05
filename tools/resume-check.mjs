@@ -14,6 +14,19 @@
  *   5. ask for the codeword — proving context genuinely survived
  *
  *   npm run build && node tools/resume-check.mjs
+ *
+ * **CURRENTLY FAILS at step 3 on the deepseek-acp backend, and is expected to
+ * until backlog item #1 is closed.** `daemon.sessions.close(sessionId)` moves
+ * the session out of the LIVE list; step 3's "reopen" depends on
+ * `discoverOnDisk()` finding it as a persisted session instead — and that
+ * function always returns `[]` on this backend (it reads Grok's per-session
+ * `summary.json`; dsh writes a compressed `session.jsonl.zstd` with no reader
+ * yet — see docs/BACKLOG.md #1). Concrete, live-tested consequence of that
+ * already-documented gap: closing a session removes it from the session list
+ * entirely until a new one is created, not just "unresumable after a daemon
+ * restart". `page.waitForFunction` times out waiting for `.session` to
+ * reappear, because nothing is there to find. Left failing rather than
+ * softened — the assertion is still true and still worth knowing about.
  */
 import { join } from 'node:path';
 import {

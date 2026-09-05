@@ -1,6 +1,0 @@
-=== G4 build ===
-
-> dshrc@0.2.1 build
-> tsc -p tsconfig.json
-
-EXIT:0

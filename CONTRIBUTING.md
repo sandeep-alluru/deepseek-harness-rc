@@ -17,6 +17,8 @@ Requires Node 20+. Optional: `deepseek-acp` on `PATH` (and a DeepSeek API key co
 npm test              # unit/browser suite + build + real-stack checks
 npm run test:suite    # mock/unit/browser only
 npm run test:real     # live UI / resume / midturn / ACP surface (needs deepseek-acp)
+                       # resume-check.mjs currently fails on purpose here — see
+                       # docs/BACKLOG.md #1 and the comment atop that file
 npm run typecheck
 npm run lint
 npm run verify:guards # each load-bearing control must fail its test when disabled

@@ -13,11 +13,11 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'Grok', body: 'Update' };
+    data = { title: 'dshrc', body: 'Update' };
   }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Grok', {
+    self.registration.showNotification(data.title || 'dshrc', {
       body: data.body || '',
       // Same tag replaces rather than stacks, so one blocked agent produces one
       // notification instead of a pile.

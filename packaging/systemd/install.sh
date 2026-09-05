@@ -3,8 +3,8 @@
 # Install dshrc as a systemd *user* service so it survives logout and reboot.
 #
 # No sudo. Everything lives under ~/.config, and the daemon runs as you — which
-# it must, since it needs ~/.grok/auth.json and spawns agents with your
-# permissions.
+# it must, since it needs $DSH_HOME/.credentials.yaml and spawns agents with
+# your permissions.
 #
 #   packaging/systemd/install.sh [-- <dshrc up args>]
 #
@@ -43,9 +43,9 @@ fi
 NODE_BIN="$(command -v node || true)"
 [[ -n "$NODE_BIN" ]] || { echo "  ✗ node not found on PATH"; exit 1; }
 
-if ! command -v grok >/dev/null; then
-  echo "  ⚠ grok not found on PATH — install it, or the daemon will start but"
-  echo "    be unable to spawn agents: curl -fsSL https://x.ai/cli/install.sh | bash"
+if ! command -v deepseek-acp >/dev/null; then
+  echo "  ⚠ deepseek-acp not found on PATH — install it, or the daemon will start but"
+  echo "    be unable to spawn agents: npm install -g deepseek-acp"
 fi
 
 mkdir -p "$UNIT_DIR" "$ENV_DIR"

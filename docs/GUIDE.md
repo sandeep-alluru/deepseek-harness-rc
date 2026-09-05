@@ -1,15 +1,6 @@
 # dshrc guide
 
-> **Backend note (2026-09-05):** this project now drives **DeepSeek Harness**
-> via `deepseek-acp`, not Grok Build. This page has not been fully re-passed
-> yet and still describes the Grok Build ancestor in several places
-> (`~/.grok/config.toml`, `grok login`, `grok -r`, `agent leader`, etc.) —
-> treat those as historical unless the top-level [README](../README.md) says
-> otherwise. Pairing, Web Push, relay, and the service-unit sections are
-> backend-agnostic and accurate as written.
-
-
-Everything you need to install, run, and operate dshrc.  
+Everything you need to install, run, and operate dshrc.
 For design internals see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
@@ -17,23 +8,24 @@ For design internals see [ARCHITECTURE.md](ARCHITECTURE.md).
 ## Requirements
 
 - **Node.js 20+**
-- **[Grok Build](https://docs.x.ai/build/overview)** (`grok` on your `PATH`) and `grok login`
+- **[`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp)** on your `PATH` (`npm install -g deepseek-acp`) — an unofficial, editor-facing ACP server over [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It wraps `dsh`; you do not install `dsh` itself separately.
+- A DeepSeek API key, either via `deepseek-acp --setup` (stored once in `$DSH_HOME/.credentials.yaml`) or `export DEEPSEEK_API_KEY=sk-...`
 - A phone browser that can open a URL on your network (or via Tailscale / relay)
 
 | Platform | Status         | Service helper         |
-| -------- | -------------- | ---------------------- |
-| Linux    | Supported (CI) | systemd user unit      |
-| macOS    | Supported (CI) | —                      |
-| Windows  | Supported (CI) | Scheduled Task scripts |
+| -------- | -------------- | ----------------------- |
+| Linux    | Supported (CI) | systemd user unit       |
+| macOS    | Supported (CI) | —                       |
+| Windows  | Supported (CI) | Scheduled Task scripts  |
 
 ---
 
 ## Install
 
 ```bash
-# Grok Build
-curl -fsSL https://x.ai/cli/install.sh | bash
-grok login
+# deepseek-acp — the ACP adapter dshrc drives
+npm install -g deepseek-acp
+deepseek-acp --setup        # paste a DeepSeek API key once (or export DEEPSEEK_API_KEY)
 
 # dshrc
 npm install -g dshrc
@@ -43,7 +35,7 @@ Without global write access:
 
 ```bash
 npm config set prefix ~/.local
-npm install -g dshrc
+npm install -g deepseek-acp dshrc
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
@@ -51,14 +43,14 @@ From source:
 
 ```bash
 git clone https://github.com/sandeep-alluru/deepseek-harness-rc.git
-cd dshrc && npm install && npm run build && npm link
+cd deepseek-harness-rc && npm install && npm run build && npm link
 ```
 
 ---
 
 ## Required configuration
 
-### 1. Default project directory
+### The one required setting: default project directory
 
 Sessions started from the phone open in `defaultCwd`. There is **no default** — set it explicitly:
 
@@ -69,39 +61,25 @@ dshrc config                    # show settings
 
 Under systemd, the process cwd is often `$HOME`, which is not a project. Set `defaultCwd` before relying on new sessions.
 
-### 2. Phone permission mode (dshrc)
+### Approvals need no configuration on this backend
 
-Phone **create / resume / take-over** spawn the agent with `--permission-mode auto` by default, so tools do not stop for every approval. That flag is independent of `~/.grok/config.toml`.
+This project's Grok Build ancestor needed two independent settings to agree —
+`dshrc config set permissionMode default` **and** `[features] support_permission = true` /
+`[ui] permission_mode = "default"` in `~/.grok/config.toml` — because Grok Build shipped
+with prompting **off** by default. Missing either one meant tools ran unattended while
+the phone's approval buttons never appeared.
 
-```bash
-dshrc config set permissionMode default   # one-tap remote approval
-dshrc config                              # show settings (includes permissionMode)
-```
+**`deepseek-acp` has no such setting to get wrong.** Its sandbox (default
+`workspace-write`) always sends `session/request_permission` for anything outside the
+session's working directory or the system temp dir — there is no config key, CLI flag,
+or environment variable that turns it off. `dshrc`'s own `permissionMode` field still
+exists (for config-file compatibility with the Grok Build era) but has no effect against
+this backend; `dshrc doctor` reflects this too — it no longer scrapes an agent config
+file, and always reports that the agent will prompt. See
+[SECURITY.md](../SECURITY.md#the-approvals-setting-different-story-on-this-backend-than-on-grok-build)
+for the full reasoning.
 
-`--permission-mode` on `dshrc up` overrides the stored value for that process only. New sessions pick up a `config set` without a daemon restart; sessions already open keep the mode they started with.
-
-### 3. Grok must ask for permission
-
-Grok Build defaults **`support_permission` off**. With that (or `permission_mode` of `auto` / `dontAsk` / `bypassPermissions` / `acceptEdits`), the agent never sends `session/request_permission` — one-tap approval does nothing and tools run unattended.
-
-Both layers must agree, or the phone will not show approval buttons:
-
-1. `dshrc config set permissionMode default` (otherwise dshrc passes `--permission-mode auto`)
-2. This block in **`~/.grok/config.toml`** (user config only; project files do not override it):
-
-```toml
-[features]
-support_permission = true
-
-[ui]
-permission_mode = "default"
-```
-
-Then:
-
-```bash
-dshrc doctor    # reports whether Grok's config will allow prompts
-```
+In short: pair a device, and one-tap approval already works. There is nothing else to set.
 
 ---
 
@@ -132,19 +110,20 @@ dshrc revoke --all
 
 ### Sessions
 
-| Mode         | How it appears                         | Control                        |
-| ------------ | -------------------------------------- | ------------------------------ |
-| **Owned**    | Started from the phone                 | Full                           |
-| **Observed** | Hand-started `grok` TUI on the machine | Read-only until **Take over**  |
-| **Shared**   | Via leader / `dshrc term`             | Full, concurrent with terminal |
+| Mode          | How it appears                              | Control                                   |
+| ------------- | -------------------------------------------- | ------------------------------------------ |
+| **Owned**     | Started from the phone                      | Full                                       |
+| **Observed**  | Hand-started `dsh` session on the machine   | **Not yet supported** on this backend — see below |
+| **Shared**    | Via a leader process / `dshrc term`         | `dshrc term` works; leader does not exist on this backend |
 
 - **New session** — from the session list
-- **Resume** — open a past session; composer returns when live
-- **Titles** — the list prefers Grok's short `generated_title` (for example `PCF-AVATAR`) over the long `session_summary` line
-- **Approvals** — tool requests show as buttons when both dshrc `permissionMode` and Grok's config allow prompts; answer by option
+- **Resume** — open a session `dshrc` itself created (including after a daemon restart); the composer returns when live. `deepseek-acp` advertises ACP's `loadSession` capability, and the on-disk existence check is verified against dsh's real session-directory naming (`$DSH_HOME/sessions/--encoded-cwd--/<id>/`)
+- **Titles** — sessions created from the phone use the title you gave them, or the project directory name
+- **Approvals** — tool requests always show as buttons; answer by option (see [Required configuration](#approvals-need-no-configuration-on-this-backend) above)
 - **Stop** — cancel the current turn
-- **Take over** — stop the TUI owner and drive the session from the phone
-- **Hand back** — free the session for desktop; daemon tries to open a terminal with `grok -r <id>`; copy-paste commands stay as fallback
+- **Take over / Hand back** — **not meaningfully different from Resume on this backend.** Both existed to safely reclaim a session a Grok Build TUI had open elsewhere, using Grok's own `active_sessions.json` registry to find and verify the owning process before touching it. `deepseek-acp` keeps no such registry — dshrc has no way to tell whether another `dsh` client currently has a given session open — so *Take over* silently degrades to a plain resume, without the "refuse to join a standalone owner" safety check the Grok backend had. *Hand back* no longer opens a terminal automatically (there is no `deepseek-acp` equivalent of `grok -r <id>`); use `dshrc term --session <id>` instead, which the released session's copy-paste commands now suggest on every platform.
+
+**Why "Observed" doesn't work yet:** it mirrors a session by tailing its on-disk log file. Grok Build wrote a plain, byte-appended `updates.jsonl`; `dsh` instead writes one compressed `session.jsonl.zstd` per session (event-sourced JSONL under zstd — verified against real files, not Grok's format). Whether that stream even supports the same poll-and-tail approach is unverified, so this mode is left un-adapted rather than silently claimed. Same story for listing sessions dshrc did not itself create: it read Grok's `summary.json` per session; `dsh` has no such file, so that list is always empty on this backend. Both are tracked as open follow-ups — the schema needed to close them is documented in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
 
 ### Terminal client
 
@@ -157,18 +136,22 @@ dshrc term --session <id>
 
 ### Commands
 
-| Command                                         | Purpose                                      |
-| ----------------------------------------------- | -------------------------------------------- |
-| `dshrc up [flags]`                             | Start daemon                                 |
-| `dshrc doctor`                                 | Health check (agent, ACP, push, live daemon) |
-| `dshrc config` / `config set` / `config unset` | Settings                                     |
-| `dshrc pair` / `devices` / `revoke`            | Device auth                                  |
-| `dshrc term`                                   | Terminal UI on a session                     |
-| `dshrc relay`                                  | Self-hosted relay server                     |
+| Command                                          | Purpose                                       |
+| ------------------------------------------------- | ---------------------------------------------- |
+| `dshrc up [flags]`                               | Start daemon                                   |
+| `dshrc doctor`                                   | Health check (agent, ACP, push, live daemon)   |
+| `dshrc config` / `config set` / `config unset`   | Settings                                       |
+| `dshrc pair` / `devices` / `revoke`              | Device auth                                    |
+| `dshrc term`                                     | Terminal UI on a session                       |
+| `dshrc relay`                                    | Self-hosted relay server                       |
 
-Useful `up` flags: `--port`, `--host`, `--lan`, `--pair`, `--relay <url>`, `--room`, `--relay-key`, `--no-push`, `--cwd`, `--model`, `--history`, `--permission-mode`.
+Useful `up` flags: `--port`, `--host`, `--lan`, `--pair`, `--relay <url>`, `--room`, `--relay-key`, `--no-push`, `--cwd`, `--model`, `--agent-command <path>`, `--history`.
 
-Config keys: `defaultCwd`, `port`, `host`, `lan`, `historyLimit`, `model`, `leader`, `permissionMode`.
+`--model` sets `DEEPSEEK_ACP_MODEL` on the spawned agent (`deepseek-acp` has no `--model` flag of its own). `--agent-command` overrides the `deepseek-acp` binary to spawn — useful for testing a different build, or a fork.
+
+`--leader` and `--permission-mode` are still accepted (config-file compatibility with this project's Grok Build ancestor) but have no effect against `deepseek-acp` — see [Required configuration](#approvals-need-no-configuration-on-this-backend) above.
+
+Config keys: `defaultCwd`, `port`, `host`, `lan`, `historyLimit`, `model`, `agentCommand`, `leader` *(deprecated, no effect)*, `permissionMode` *(deprecated, no effect)*.
 
 ---
 
@@ -177,11 +160,11 @@ Config keys: `defaultCwd`, `port`, `host`, `lan`, `historyLimit`, `model`, `lead
 Pick one path. **Tailscale is the recommended way to use dshrc from anywhere** (cellular, coffee shop, travel) without opening ports on your router.
 
 | Path              | When to use                                  | Phone URL shape                 |
-| ----------------- | -------------------------------------------- | ------------------------------- |
-| **Loopback only** | Desktop browser on the same machine          | `http://127.0.0.1:4319`         |
-| **LAN**           | Phone on the same Wi‑Fi, trusted network     | `http://192.168.x.x:4319`       |
-| **Tailscale**     | Phone anywhere on your tailnet (recommended) | `https://your-machine.….ts.net` |
-| **Relay**         | You control a VPS; daemon dials **out**      | Relay room URL (see below)      |
+| ----------------- | --------------------------------------------- | -------------------------------- |
+| **Loopback only** | Desktop browser on the same machine          | `http://127.0.0.1:4319`          |
+| **LAN**           | Phone on the same Wi‑Fi, trusted network     | `http://192.168.x.x:4319`        |
+| **Tailscale**     | Phone anywhere on your tailnet (recommended) | `https://your-machine.….ts.net`  |
+| **Relay**         | You control a VPS; daemon dials **out**      | Relay room URL (see below)       |
 
 ### LAN (same Wi‑Fi only)
 
@@ -250,7 +233,7 @@ Using raw `100.x.x.x:4319` works on many phones but is **HTTP**. For iOS push an
 
 #### 3. Publish HTTPS with `tailscale serve`
 
-On the **same machine** as the daemon, reverse-proxy **HTTPS** from your tailnet to local dshrc.  
+On the **same machine** as the daemon, reverse-proxy **HTTPS** from your tailnet to local dshrc.
 `dshrc` should already be listening on `127.0.0.1:4319` (`dshrc up`).
 
 **Allow your user to run Serve without `sudo` every time** (Linux; run once):
@@ -294,10 +277,10 @@ https://dev-laptop.tail-abc123.ts.net
 
 Not the LAN address (`http://192.168.…`). Not a public Funnel URL.
 
-| Placeholder   | Meaning                                                                       |
-| ------------- | ----------------------------------------------------------------------------- |
-| `dev-laptop`  | Your machine’s MagicDNS name (set in the Tailscale admin console or hostname) |
-| `tail-abc123` | Your tailnet’s DNS suffix (unique per account/org)                            |
+| Placeholder   | Meaning                                                                        |
+| ------------- | -------------------------------------------------------------------------------- |
+| `dev-laptop`  | Your machine's MagicDNS name (set in the Tailscale admin console or hostname)   |
+| `tail-abc123` | Your tailnet's DNS suffix (unique per account/org)                             |
 
 Find your real hostname with:
 
@@ -310,7 +293,7 @@ tailscale serve status
 #### 4. Pair from the phone
 
 1. Phone: Tailscale app **on** and connected to the **same** tailnet
-2. Open your Serve URL, e.g. `https://dev-laptop.tail-abc123.ts.net`  
+2. Open your Serve URL, e.g. `https://dev-laptop.tail-abc123.ts.net`
    (use **your** name from `tailscale serve status`, not this sample)
 3. Enter the pairing code (`dshrc pair` on the machine if you need a new one)
 4. **Add to Home Screen** (required for iOS notifications)
@@ -319,35 +302,35 @@ You can now leave home Wi‑Fi; as long as both devices are on the tailnet, the 
 
 #### 5. Persist across reboot
 
-| Piece             | How                                                                                                                                                                                |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dshrc            | Linux: systemd user unit — [Run as a service](#run-as-a-service). Windows: Scheduled Task scripts under `packaging/windows/`.                                                      |
+| Piece             | How                                                                                                                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dshrc             | Linux: systemd user unit — [Run as a service](#run-as-a-service). Windows: Scheduled Task scripts under `packaging/windows/`.                                                      |
 | `tailscale serve` | `--bg` keeps the serve config; Tailscale usually restores it after reboot once the client is up. Re-run the `tailscale serve` command if `serve status` is empty after an upgrade. |
 
 Order after reboot: Tailscale online → dshrc listening → Serve still points at `http://127.0.0.1:4319`.
 
 #### Serve vs Funnel
 
-|                 | `tailscale serve`     | `tailscale funnel`                                           |
-| --------------- | --------------------- | ------------------------------------------------------------ |
-| Who can connect | **Only your tailnet** | Public internet                                              |
-| For dshrc?     | **Yes — use this**    | **No** — remote control of a coding agent must not be public |
+|                 | `tailscale serve`     | `tailscale funnel`                                             |
+| ----------------- | ------------------------ | ------------------------------------------------------------------ |
+| Who can connect | **Only your tailnet** | Public internet                                                  |
+| For dshrc?      | **Yes — use this**    | **No** — remote control of a coding agent must not be public     |
 
 Do **not** enable Funnel for dshrc.
 
 #### Tailscale troubleshooting
 
-| Symptom                                          | What to check                                                                                      |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Phone can’t load the page                        | Tailscale connected on **both** devices; same tailnet; `tailscale status` shows the machine online |
-| Connection refused                               | `dshrc` running? `curl -sS http://127.0.0.1:4319/api/health` on the machine                       |
-| Serve 502 / bad gateway                          | Daemon not on `127.0.0.1:4319` — start `dshrc up` (not only Serve)                                |
-| Wrong URL on phone                               | Use the **`https://….ts.net`** Serve URL, not an old LAN `http://192.168.…` bookmark               |
-| Works on Wi‑Fi, dies on cellular                 | Phone Tailscale disconnected or battery optimization killed the VPN app                            |
-| iOS push still broken                            | Must be **Home Screen** PWA over **HTTPS** (Serve). Tab Safari is not enough                       |
-| Certificate warnings                             | Use the MagicDNS / Serve hostname Tailscale issued; don’t invent hostnames                         |
-| `tailscale serve` needs root / permission denied | Run once: `sudo tailscale set --operator=$USER`, then retry `serve`                                |
-| `serve status` empty after reboot                | Tailscale up? Re-run `tailscale serve --bg http://127.0.0.1:4319`                                  |
+| Symptom                                          | What to check                                                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Phone can't load the page                        | Tailscale connected on **both** devices; same tailnet; `tailscale status` shows the machine online   |
+| Connection refused                               | `dshrc` running? `curl -sS http://127.0.0.1:4319/api/health` on the machine                          |
+| Serve 502 / bad gateway                          | Daemon not on `127.0.0.1:4319` — start `dshrc up` (not only Serve)                                    |
+| Wrong URL on phone                               | Use the **`https://….ts.net`** Serve URL, not an old LAN `http://192.168.…` bookmark                  |
+| Works on Wi‑Fi, dies on cellular                 | Phone Tailscale disconnected or battery optimization killed the VPN app                              |
+| iOS push still broken                            | Must be **Home Screen** PWA over **HTTPS** (Serve). Tab Safari is not enough                          |
+| Certificate warnings                             | Use the MagicDNS / Serve hostname Tailscale issued; don't invent hostnames                            |
+| `tailscale serve` needs root / permission denied | Run once: `sudo tailscale set --operator=$USER`, then retry `serve`                                    |
+| `serve status` empty after reboot                | Tailscale up? Re-run `tailscale serve --bg http://127.0.0.1:4319`                                     |
 
 ```bash
 # Machine-side health
@@ -371,7 +354,7 @@ dshrc relay --port 8080
 dshrc up --relay wss://relay.example.com:8080
 ```
 
-The daemon dials out. Frames are encrypted; the room key travels in the URL fragment (browsers do not send fragments to the server).  
+The daemon dials out. Frames are encrypted; the room key travels in the URL fragment (browsers do not send fragments to the server).
 Pure transport with no JS from the relay: `dshrc relay --no-client` (install the PWA from the daemon origin first when you can).
 
 ---
@@ -380,11 +363,11 @@ Pure transport with no JS from the relay: `dshrc relay --no-client` (install the
 
 Self-hosted **Web Push** (VAPID). No third-party push cloud.
 
-| Platform    | Notes                                                                                                                                                           |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform    | Notes                                                                                                                                                            |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **iOS**     | Safari **Add to Home Screen** only. Tab Safari and other iOS browsers do not support Web Push.                                                                  |
 | **Android** | Chrome / Firefox / Edge / Samsung Internet; HTTPS required. **Not yet tested on a physical Android device** — use `dshrc doctor` and a real device to confirm. |
-| **Desktop** | Works where Push API + service worker are available                                                                                                             |
+| **Desktop** | Works where Push API + service worker are available                                                                                                              |
 
 The session list shows a notification row with status flags (`installed · pushAPI · sw · https · permission`) when something is missing.
 
@@ -415,16 +398,16 @@ No service unit ships. Use `dshrc up` from a login item or your own launchd plis
 
 ## Troubleshooting
 
-| Symptom                       | Fix                                                                                                                                                                     |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `doctor` / `up` says no agent | Install Grok Build; ensure `grok` is on `PATH`                                                                                                                          |
-| Pairing “invalid” / expired   | Codes expire; only one redeem each; run `dshrc pair` again (don’t issue many codes while typing one)                                                                   |
-| No text box on old session    | Observed / finished sessions are read-only — **Resume** or start new                                                                                                    |
-| Approvals never appear        | Set `dshrc config set permissionMode default` **and** `support_permission` + `permission_mode = "default"` in `~/.grok/config.toml`. Either layer alone is not enough. |
-| Push never on iPhone          | Home Screen app + HTTPS; check notification row flags                                                                                                                   |
-| Phone can’t reach daemon      | Same LAN / Tailscale / relay; check bind (`--lan` vs loopback)                                                                                                          |
-| Hand-back: no terminal opens  | Restart daemon after upgrades; use the copy-paste `grok -r` command; on Linux the machine needs a graphical session (`DISPLAY` / Wayland)                               |
-| Stale UI after upgrade        | Force-close the PWA; hard refresh; check daemon is running the new build                                                                                                |
+| Symptom                       | Fix                                                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `doctor` / `up` says no agent | Install `deepseek-acp`: `npm install -g deepseek-acp`; ensure it is on `PATH`                                                              |
+| Pairing "invalid" / expired   | Codes expire; only one redeem each; run `dshrc pair` again (don't issue many codes while typing one)                                       |
+| No text box on old session    | Observed / finished sessions are read-only — **Resume** or start new                                                                        |
+| Approvals never appear        | They should always appear on this backend — see [Required configuration](#approvals-need-no-configuration-on-this-backend). If they still don't, `dshrc doctor` should confirm `deepseek-acp` and the ACP handshake are both healthy; open an issue if it reports fine and approvals still never surface. |
+| Push never on iPhone          | Home Screen app + HTTPS; check notification row flags                                                                                       |
+| Phone can't reach daemon      | Same LAN / Tailscale / relay; check bind (`--lan` vs loopback)                                                                              |
+| Hand-back: no terminal opens  | Expected on this backend — there is no `deepseek-acp` equivalent of `grok -r`. Use the copy-paste `dshrc term --session <id>` command instead. |
+| Stale UI after upgrade        | Force-close the PWA; hard refresh; check daemon is running the new build                                                                    |
 
 ```bash
 dshrc doctor
@@ -435,19 +418,19 @@ dshrc devices
 
 ## FAQ
 
-**Why not just put a terminal on my phone?**  
-Grok exposes a structured agent protocol. Approvals, tools, and plans are typed events — not ANSI guesswork.
+**Why not just put a terminal on my phone?**
+DeepSeek Harness exposes a structured agent protocol via `deepseek-acp`. Approvals, tools, and plans are typed events — not ANSI guesswork.
 
-**Does the TUI and phone share one session?**  
-Use `dshrc term` (or take over / hand back). Grok’s own TUI does not join a shared leader socket for this product path.
+**Does the TUI and phone share one session?**
+Use `dshrc term` to open a terminal on the same session the phone drives. There is no shared-backend "leader" mode on this backend — `deepseek-acp` has no equivalent of Grok Build's `agent leader`, so a session started with plain `dsh` cannot join the phone's live session the way this project's Grok Build ancestor could.
 
-**Is my code sent to a cloud?**  
-The agent runs on **your** machine with **your** Grok credentials. The phone talks to your daemon (or your relay). Credentials stay local.
+**Is my code sent to a cloud?**
+The agent runs on **your** machine, via `deepseek-acp`, using **your own** DeepSeek API key. Prompts and tool calls go to the DeepSeek API the same way they would from any other DeepSeek Harness client — dshrc adds no additional cloud in that path. The phone talks to your daemon (or your relay); the daemon and your credentials stay local.
 
-**Can I use it on cellular?**  
+**Can I use it on cellular?**
 Yes with Tailscale or relay mode.
 
-**Android push?**  
+**Android push?**
 Supported by the web platform in principle; **not validated on a physical Android device** yet.
 
 ---

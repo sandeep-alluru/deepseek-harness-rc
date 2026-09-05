@@ -17,7 +17,8 @@ const tmp = await mkdtemp(join(tmpdir(), 'dshrc-release-'));
 process.env.DSHRC_HOME = tmp;
 process.env.DSH_HOME = tmp;
 
-const { SessionManager, resumeCommands, encodeDshCwd } = await import('../src/daemon/session-manager.ts');
+const { SessionManager, resumeCommands, encodeDshCwd } =
+  await import('../src/daemon/session-manager.ts');
 
 const SESSION_ID = '019fabcd-0000-7000-8000-00000000rel';
 

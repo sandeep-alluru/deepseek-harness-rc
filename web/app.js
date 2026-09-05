@@ -896,7 +896,7 @@ function renderHandBackBar(s) {
   label.className = 'sub';
   label.style.marginTop = '6px';
   label.textContent =
-    'Stops phone control and opens Grok in a NEW terminal on the machine (the old window stays dead after Take over). Prefer: dshrc term if you want both live.';
+    'Stops phone control. On this backend there is no way to auto-open a new terminal — use dshrc term to keep driving the session, or copy a command from the release card.';
 
   let armed = false;
   btn.addEventListener('click', () => {
@@ -951,7 +951,7 @@ function renderReleasedCard(msg) {
   sub.className = 'sub';
   if (relaunchOk) {
     sub.textContent =
-      'Take over had killed the old Grok window (that is normal). A NEW terminal should open on the PC. If none appears, copy a command below.';
+      'Take over had killed the old session (that is normal). A NEW terminal should open on the PC. If none appears, copy a command below.';
   } else {
     sub.textContent =
       'Session is free. The old terminal window cannot be revived — open a new one and run:';
@@ -967,11 +967,10 @@ function renderReleasedCard(msg) {
   }
 
   const cmds = msg.commands ?? {};
-  const bash = cmds.bash || msg.command || (msg.sessionId ? `grok -r ${msg.sessionId}` : '');
-  const powershell =
-    cmds.powershell ||
-    (msg.cwd && msg.sessionId ? `Set-Location '${msg.cwd}'; grok -r ${msg.sessionId}` : bash);
   const term = cmds.term || (msg.sessionId ? `dshrc term --session ${msg.sessionId}` : '');
+  const bash = cmds.bash || msg.command || term;
+  const powershell =
+    cmds.powershell || (msg.cwd && msg.sessionId ? `Set-Location '${msg.cwd}'; ${term}` : bash);
 
   const addCmd = (label, command) => {
     if (!command) return;

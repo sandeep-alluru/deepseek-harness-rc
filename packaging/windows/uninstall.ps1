@@ -55,4 +55,4 @@ if ($RemoveLog -and (Test-Path $LogPath)) {
 
 Write-Host ''
 Write-Host '  dshrc itself is untouched - this only removes the autostart task.'
-Write-Host '  Settings live in ~/.dshrc, credentials in ~/.grok.'
+Write-Host '  Settings live in ~/.dshrc, credentials in $DSH_HOME/.credentials.yaml.'

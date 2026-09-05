@@ -18,7 +18,7 @@ what changed in the daemon to allow it.
                                 │
                                 │  wss  (Tailscale / LAN)
                                 ▼
-                          dshrc daemon  ── ACP ──►  grok agent
+                          dshrc daemon  ── ACP ──►  deepseek-acp
 ```
 
 The glasses run no code. They are a 576 × 288 monochrome display driven over

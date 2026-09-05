@@ -144,7 +144,12 @@ test('useLeader / leaderSocket / permissionMode are accepted but produce no argv
   // env assertion below.
   assert.doesNotThrow(() => JSON.parse(out));
 
-  const t = new StdioTransport({ command: 'true', cwd: workDir, useLeader: true, leaderSocket: sock });
+  const t = new StdioTransport({
+    command: 'true',
+    cwd: workDir,
+    useLeader: true,
+    leaderSocket: sock,
+  });
   t.on('error', () => {});
   assert.deepEqual(t.args, [], 'leader options must not appear in argv on this backend');
   t.close();
@@ -158,53 +163,44 @@ test('argv is unchanged when leader mode is off', () => {
   assert.deepEqual(argv, [], 'deepseek-acp needs no argv to run as an ACP service');
 });
 
-test.skip(
-  'the leader process comes up and exposes its socket (Grok Build only — no deepseek-acp equivalent)',
-  async (t) => {
-    if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
-    assert.equal(available, true);
+test.skip('the leader process comes up and exposes its socket (Grok Build only — no deepseek-acp equivalent)', async (t) => {
+  if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
+  assert.equal(available, true);
+});
+
+test.skip('two independent clients attach to one shared backend (Grok Build only — no deepseek-acp equivalent)', async (t) => {
+  if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
+
+  const a = connect();
+  const b = connect();
+  try {
+    const initA = await a.initialize();
+    const initB = await b.initialize();
+    assert.equal(initA.protocolVersion, 1);
+    assert.equal(initB.protocolVersion, 1);
+
+    const sessionA = await a.newSession(workDir);
+    assert.ok(sessionA.sessionId);
+
+    const list = await b.listSessions();
+    assert.match(JSON.stringify(list), new RegExp(sessionA.sessionId));
+
+    await b.loadSession(sessionA.sessionId, workDir);
+  } finally {
+    a.close();
+    b.close();
   }
-);
+});
 
-test.skip(
-  'two independent clients attach to one shared backend (Grok Build only — no deepseek-acp equivalent)',
-  async (t) => {
-    if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
+test.skip('SessionManager passes leader options through to the transport (Grok Build only — no deepseek-acp equivalent)', async (t) => {
+  if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
 
-    const a = connect();
-    const b = connect();
-    try {
-      const initA = await a.initialize();
-      const initB = await b.initialize();
-      assert.equal(initA.protocolVersion, 1);
-      assert.equal(initB.protocolVersion, 1);
-
-      const sessionA = await a.newSession(workDir);
-      assert.ok(sessionA.sessionId);
-
-      const list = await b.listSessions();
-      assert.match(JSON.stringify(list), new RegExp(sessionA.sessionId));
-
-      await b.loadSession(sessionA.sessionId, workDir);
-    } finally {
-      a.close();
-      b.close();
-    }
+  const sessions = new SessionManager({ useLeader: true, leaderSocket: sock });
+  try {
+    const info = await sessions.create(workDir, { title: 'leader-session' });
+    assert.equal(info.mode, 'shared');
+    assert.ok(info.id);
+  } finally {
+    sessions.closeAll();
   }
-);
-
-test.skip(
-  'SessionManager passes leader options through to the transport (Grok Build only — no deepseek-acp equivalent)',
-  async (t) => {
-    if (!available) return t.skip('no shared-leader concept on the deepseek-acp backend');
-
-    const sessions = new SessionManager({ useLeader: true, leaderSocket: sock });
-    try {
-      const info = await sessions.create(workDir, { title: 'leader-session' });
-      assert.equal(info.mode, 'shared');
-      assert.ok(info.id);
-    } finally {
-      sessions.closeAll();
-    }
-  }
-);
+});

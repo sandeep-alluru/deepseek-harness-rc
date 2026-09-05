@@ -39,7 +39,7 @@ test('no config: always prompts — nothing to read, nothing to bypass', async (
   assert.equal(posturteWarning(p), null);
 });
 
-test('a config shaped like Grok Build\'s old bypass is inert', async () => {
+test("a config shaped like Grok Build's old bypass is inert", async () => {
   // The exact content that used to defeat approval on the Grok backend:
   // support_permission off AND a non-prompting permission_mode. Proves the
   // rewrite really ignores the file rather than merely never having been

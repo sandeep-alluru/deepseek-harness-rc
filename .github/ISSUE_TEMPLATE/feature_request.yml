@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        dshrc has a deliberately narrow scope: drive a Grok Build agent from a phone
+        dshrc has a deliberately narrow scope: drive a DeepSeek Harness agent from a phone
         over ACP. Requests that fit that shape are much more likely to land.
 
   - type: textarea

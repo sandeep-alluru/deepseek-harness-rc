@@ -74,7 +74,7 @@ console.log(`  permission kinds     : ${[...claims.permissionKinds].join(', ')}`
 
 note(claims.updateKinds.size > 0, `mock asserts ${claims.updateKinds.size} session/update kind(s)`);
 
-/* ── 2. what does a REAL grok actually send? ──────────────────────────────── */
+/* ── 2. what does a REAL agent actually send? ─────────────────────────────── */
 
 await isolatedGrokHome({ prompting: true });
 
@@ -134,7 +134,7 @@ try {
   await client.initialize();
   const s = await client.newSession(cwd);
   sessionId = s?.sessionId ?? null;
-  note(!!sessionId, `real grok session created (${sessionId})`);
+  note(!!sessionId, `real agent session created (${sessionId})`);
 } catch (err) {
   note(false, `could not start a real agent: ${err.message}`);
 }
@@ -158,11 +158,11 @@ await new Promise((r) => setTimeout(r, 1500));
 
 const { execFile } = await import('node:child_process');
 const { promisify } = await import('node:util');
-const agentVersion = await promisify(execFile)('grok', ['--version'])
+const agentVersion = await promisify(execFile)('deepseek-acp', ['--version'])
   .then((r) => r.stdout.trim())
   .catch(() => 'unknown');
 
-console.log('\n  ─── what grok actually sent ───');
+console.log('\n  ─── what the agent actually sent ───');
 console.log(`  agent under test     : ${agentVersion}`);
 for (const [k, n] of [...observed.updateKinds].sort())
   console.log(`  update ${k.padEnd(28)} x${n}`);

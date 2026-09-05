@@ -17,8 +17,8 @@ body:
       label: What happened
       description: What did you see, and what did you expect instead?
       placeholder: |
-        The session list stayed empty after pairing. I expected my running
-        Grok session to appear as an observed session.
+        The approval buttons never appeared on the phone after a tool call,
+        even though the daemon log shows session/request_permission was sent.
     validations:
       required: true
 
@@ -30,7 +30,7 @@ body:
       placeholder: |
         1. dshrc up --lan --pair
         2. Pair the phone with the printed code
-        3. Start `grok` in another terminal in ~/code
+        3. Ask it to run a shell command that touches a file outside the project
         4. Pull to refresh on the phone — the session never appears
     validations:
       required: true
@@ -39,7 +39,7 @@ body:
     id: doctor
     attributes:
       label: Output of `dshrc doctor`
-      description: This captures your Grok version and whether ACP responds. Paste it verbatim.
+      description: This captures your deepseek-acp version and whether ACP responds. Paste it verbatim.
       render: shell
     validations:
       required: true
