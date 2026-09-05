@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Build with a Node that can compile TypeScript...
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -54,7 +54,7 @@ jobs:
       - run: npm run build
 
       # ...then run the built artifact on the Node under test.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
 
@@ -120,7 +120,7 @@ jobs:
         node: ['22', '24']
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
