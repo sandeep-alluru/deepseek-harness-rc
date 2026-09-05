@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup help and usage questions
+    url: https://github.com/sandeep-alluru/deepseek-harness-rc/discussions
+    about: Ask here before filing a bug — most setup problems are covered in the Guide.
+  - name: User guide
+    url: https://github.com/sandeep-alluru/deepseek-harness-rc/blob/main/docs/GUIDE.md
+    about: Install, config, networking, push, troubleshooting, FAQ.
+  - name: Report a security vulnerability
+    url: https://github.com/sandeep-alluru/deepseek-harness-rc/security/advisories/new
+    about: Please do not open a public issue for security problems.

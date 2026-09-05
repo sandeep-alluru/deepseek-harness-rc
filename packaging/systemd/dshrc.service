@@ -1,0 +1,65 @@
+# dshrc — remote control for Grok Build
+#
+# A *user* unit, deliberately, not a system one:
+#   - it needs ~/.grok/auth.json, which belongs to you, not root
+#   - the agents it spawns must run as you, with your file permissions
+#   - no sudo is required to install, start, or update it
+#
+# Survives reboot only with lingering enabled (install.sh does this):
+#   loginctl enable-linger $USER
+#
+# Install:  packaging/systemd/install.sh
+# Logs:     journalctl --user -u dshrc -f
+
+[Unit]
+Description=dshrc — remote control for Grok Build
+Documentation=https://github.com/sandeep-alluru/deepseek-harness-rc
+# Bind rather than merely order: if the network goes, restart cleanly when it returns.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Paths and flags live in an env file so this unit is not machine-specific and
+# can be committed to the repo unchanged. install.sh generates it.
+EnvironmentFile=%h/.config/dshrc/dshrc.env
+#
+# NOTE the deliberate mix of ${VAR} and $VAR — systemd treats them differently:
+#   ${DSHRC_NODE} / ${DSHRC_ENTRY}  → ONE argument, never split (paths may
+#                                        contain spaces)
+#   $DSHRC_ARGS                      → split on whitespace into SEPARATE
+#                                        arguments
+# With ${DSHRC_ARGS}, "--lan --leader" arrives as a single argv entry and the
+# CLI silently parses neither flag — the daemon came up on loopback while
+# claiming to have been told --lan.
+ExecStart=/usr/bin/env ${DSHRC_NODE} ${DSHRC_ENTRY} up $DSHRC_ARGS
+
+Restart=on-failure
+RestartSec=5
+# Don't thrash if it's crash-looping on a bad config.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Give in-flight agent turns a moment to unwind rather than being cut off.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# Hardening is deliberately minimal.
+#
+# Two reasons, both learned by running it:
+#  1. This process exists to spawn coding agents that read and write your files
+#     and run shell commands. ProtectHome / PrivateTmp / ReadOnlyPaths would
+#     break exactly what it is for.
+#  2. Capability-dropping directives (ProtectKernelTunables, ProtectControlGroups,
+#     RestrictSUIDSGID, …) are SYSTEM-unit features. In a user unit the manager
+#     has no privileges to drop, and systemd fails the service outright with
+#     status=218/CAPABILITIES. NoNewPrivileges is the one that works unprivileged.
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dshrc
+
+[Install]
+WantedBy=default.target

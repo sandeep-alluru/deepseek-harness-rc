@@ -1,0 +1,44 @@
+# Keep the working tree byte-identical on every platform.
+#
+# Without this, git's Windows default (`core.autocrlf=true`) checks the tree out
+# with CRLF, and two mechanisms this repo relies on stop working — neither of
+# them loudly:
+#
+#   · `npm run format:check` fails on EVERY file. Prettier defaults to
+#     `endOfLine: "lf"`, so a stock Windows clone reports ~88 files as
+#     misformatted while being byte-identical to Prettier's output apart from
+#     the line endings. Measured: `package.json` normalised to LF equals
+#     `prettier package.json` exactly.
+#
+#   · every multi-line pattern in `tools/guards.mjs` matches ZERO times, so
+#     `npm run verify:guards` reports PATTERN DRIFT instead of proving the
+#     controls load-bearing — the mechanism that exists to catch a check which
+#     silently measures nothing, silently measuring nothing.
+#
+# `tools/guard-match.mjs` makes the guard runner tolerate CRLF regardless, so a
+# contributor who has already cloned is not stuck. This file is the actual fix.
+#
+# NOTE, because the usual advice does not apply here: `git add --renormalize .`
+# does NOTHING in this repo. That command fixes a repository whose COMMITTED
+# content is CRLF. This one was authored on Linux, so the committed content is
+# already LF — measured with `git ls-files --eol`, which reports `i/lf` for every
+# tracked file. There is nothing to renormalise and the commit would be empty.
+#
+# What is stale in an older clone is the WORKING TREE, written as CRLF before
+# this file existed. Refreshing it is not a commit at all — git reports no change
+# afterwards, because only the line endings differed:
+#
+#     git status                       # confirm a clean tree first
+#     git ls-files -z | xargs -0 rm -f
+#     git checkout -- .
+#
+# `git checkout-index -a -f` looks like it should do this and does not: git skips
+# files it considers up to date via the stat cache, so they must actually be
+# removed first.
+* text=auto eol=lf
+
+# Binary — never touched.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
