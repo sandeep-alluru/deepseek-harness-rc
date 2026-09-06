@@ -61,23 +61,15 @@ dshrc config                    # show settings
 
 Under systemd, the process cwd is often `$HOME`, which is not a project. Set `defaultCwd` before relying on new sessions.
 
-### Approvals need no configuration on this backend
+### Approvals need no configuration
 
-This project's Grok Build ancestor needed two independent settings to agree —
-`dshrc config set permissionMode default` **and** `[features] support_permission = true` /
-`[ui] permission_mode = "default"` in `~/.grok/config.toml` — because Grok Build shipped
-with prompting **off** by default. Missing either one meant tools ran unattended while
-the phone's approval buttons never appeared.
-
-**`deepseek-acp` has no such setting to get wrong.** Its sandbox (default
+**`deepseek-acp` has no setting that could disable approvals.** Its sandbox (default
 `workspace-write`) always sends `session/request_permission` for anything outside the
 session's working directory or the system temp dir — there is no config key, CLI flag,
-or environment variable that turns it off. `dshrc`'s own `permissionMode` field still
-exists (for config-file compatibility with the Grok Build era) but has no effect against
-this backend; `dshrc doctor` reflects this too — it no longer scrapes an agent config
-file, and always reports that the agent will prompt. See
-[SECURITY.md](../SECURITY.md#the-approvals-setting-different-story-on-this-backend-than-on-grok-build)
-for the full reasoning.
+or environment variable that turns it off. `dshrc`'s own `permissionMode` field exists
+for config-file compatibility but has no effect against this backend; `dshrc doctor`
+reflects this too — it always reports that the agent will prompt. See
+[SECURITY.md](../SECURITY.md#approvals-cannot-be-silently-disabled) for the full reasoning.
 
 In short: pair a device, and one-tap approval already works. There is nothing else to set.
 
@@ -119,11 +111,11 @@ dshrc revoke --all
 - **New session** — from the session list
 - **Resume** — open a session `dshrc` itself created (including after a daemon restart); the composer returns when live. `deepseek-acp` advertises ACP's `loadSession` capability, and the on-disk existence check is verified against dsh's real session-directory naming (`$DSH_HOME/sessions/--encoded-cwd--/<id>/`)
 - **Titles** — sessions created from the phone use the title you gave them, or the project directory name
-- **Approvals** — tool requests always show as buttons; answer by option (see [Required configuration](#approvals-need-no-configuration-on-this-backend) above)
+- **Approvals** — tool requests always show as buttons; answer by option (see [Required configuration](#approvals-need-no-configuration) above)
 - **Stop** — cancel the current turn
-- **Take over / Hand back** — **not meaningfully different from Resume on this backend.** Both existed to safely reclaim a session a Grok Build TUI had open elsewhere, using Grok's own `active_sessions.json` registry to find and verify the owning process before touching it. `deepseek-acp` keeps no such registry — dshrc has no way to tell whether another `dsh` client currently has a given session open — so *Take over* silently degrades to a plain resume, without the "refuse to join a standalone owner" safety check the Grok backend had. *Hand back* no longer opens a terminal automatically (there is no `deepseek-acp` equivalent of `grok -r <id>`); use `dshrc term --session <id>` instead, which the released session's copy-paste commands now suggest on every platform.
+- **Take over / Hand back** — **not meaningfully different from Resume on this backend.** They exist to safely reclaim a session another process has open, verifying the owning process before touching it — but that needs a live-process registry, and dsh keeps none. `deepseek-acp` has no such registry — dshrc has no way to tell whether another `dsh` client currently has a given session open — so *Take over* silently degrades to a plain resume, without a "refuse to join a standalone owner" safety check. *Hand back* no longer opens a terminal automatically (there is no such affordance on this backend); use `dshrc term --session <id>` instead, which the released session's copy-paste commands now suggest on every platform.
 
-**Why "Observed" doesn't work yet:** it mirrors a session by tailing its on-disk log file. Grok Build wrote a plain, byte-appended `updates.jsonl`; `dsh` instead writes one compressed `session.jsonl.zstd` per session (event-sourced JSONL under zstd — verified against real files, not Grok's format). Whether that stream even supports the same poll-and-tail approach is unverified, so this mode is left un-adapted rather than silently claimed. Same story for listing sessions dshrc did not itself create: it read Grok's `summary.json` per session; `dsh` has no such file, so that list is always empty on this backend. Both are tracked as open follow-ups — the schema needed to close them is documented in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
+**Why "Observed" doesn't work yet:** it mirrors a session by tailing its on-disk log file. `dsh` writes one compressed `session.jsonl.zstd` per session (event-sourced JSONL under zstd — verified against real files) rather than a plain, byte-appended log. Whether that compressed stream even supports the same poll-and-tail approach is unverified, so this mode is left un-adapted rather than silently claimed. Same story for listing sessions dshrc did not itself create: there is no per-session summary file to read, so that list is always empty on this backend. Both are tracked as open follow-ups — the schema needed to close them is documented in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
 
 ### Terminal client
 
@@ -149,7 +141,7 @@ Useful `up` flags: `--port`, `--host`, `--lan`, `--pair`, `--relay <url>`, `--ro
 
 `--model` sets `DEEPSEEK_ACP_MODEL` on the spawned agent (`deepseek-acp` has no `--model` flag of its own). `--agent-command` overrides the `deepseek-acp` binary to spawn — useful for testing a different build, or a fork.
 
-`--leader` and `--permission-mode` are still accepted (config-file compatibility with this project's Grok Build ancestor) but have no effect against `deepseek-acp` — see [Required configuration](#approvals-need-no-configuration-on-this-backend) above.
+`--leader` and `--permission-mode` are still accepted (config-file compatibility) but have no effect against `deepseek-acp` — see [Required configuration](#approvals-need-no-configuration) above.
 
 Config keys: `defaultCwd`, `port`, `host`, `lan`, `historyLimit`, `model`, `agentCommand`, `leader` *(deprecated, no effect)*, `permissionMode` *(deprecated, no effect)*.
 
@@ -403,7 +395,7 @@ No service unit ships. Use `dshrc up` from a login item or your own launchd plis
 | `doctor` / `up` says no agent | Install `deepseek-acp`: `npm install -g deepseek-acp`; ensure it is on `PATH`                                                              |
 | Pairing "invalid" / expired   | Codes expire; only one redeem each; run `dshrc pair` again (don't issue many codes while typing one)                                       |
 | No text box on old session    | Observed / finished sessions are read-only — **Resume** or start new                                                                        |
-| Approvals never appear        | They should always appear on this backend — see [Required configuration](#approvals-need-no-configuration-on-this-backend). If they still don't, `dshrc doctor` should confirm `deepseek-acp` and the ACP handshake are both healthy; open an issue if it reports fine and approvals still never surface. |
+| Approvals never appear        | They should always appear on this backend — see [Required configuration](#approvals-need-no-configuration). If they still don't, `dshrc doctor` should confirm `deepseek-acp` and the ACP handshake are both healthy; open an issue if it reports fine and approvals still never surface. |
 | Push never on iPhone          | Home Screen app + HTTPS; check notification row flags                                                                                       |
 | Phone can't reach daemon      | Same LAN / Tailscale / relay; check bind (`--lan` vs loopback)                                                                              |
 | Hand-back: no terminal opens  | Expected on this backend — there is no `deepseek-acp` equivalent of `grok -r`. Use the copy-paste `dshrc term --session <id>` command instead. |
@@ -422,7 +414,7 @@ dshrc devices
 DeepSeek Harness exposes a structured agent protocol via `deepseek-acp`. Approvals, tools, and plans are typed events — not ANSI guesswork.
 
 **Does the TUI and phone share one session?**
-Use `dshrc term` to open a terminal on the same session the phone drives. There is no shared-backend "leader" mode on this backend — `deepseek-acp` has no equivalent of Grok Build's `agent leader`, so a session started with plain `dsh` cannot join the phone's live session the way this project's Grok Build ancestor could.
+Use `dshrc term` to open a terminal on the same session the phone drives. There is no shared-backend "leader" mode on this backend — `deepseek-acp` has no concept of multiple clients driving one running process, so a session started with plain `dsh` cannot join the phone's live session.
 
 **Is my code sent to a cloud?**
 The agent runs on **your** machine, via `deepseek-acp`, using **your own** DeepSeek API key. Prompts and tool calls go to the DeepSeek API the same way they would from any other DeepSeek Harness client — dshrc adds no additional cloud in that path. The phone talks to your daemon (or your relay); the daemon and your credentials stay local.

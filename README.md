@@ -17,7 +17,6 @@
   <a href="#-features">Features</a> ·
   <a href="#-install">Install</a> ·
   <a href="#-quickstart">Quickstart</a> ·
-  <a href="#why-the-fork">Why the fork</a> ·
   <a href="#known-gaps">Known gaps</a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a>
@@ -66,9 +65,9 @@ Open the printed URL on your phone, enter the 6-character code, add to Home Scre
 
 (`192.168.1.10` is an example — use the address your machine prints.)
 
-Approvals need no extra setup here — unlike this project's Grok Build ancestor,
-`deepseek-acp`'s sandbox **always** asks before a tool touches anything outside the
-session's working directory, so one-tap approval just works. See [Why the fork](#why-the-fork).
+Approvals need no extra setup: `deepseek-acp`'s sandbox **always** asks before a tool
+touches anything outside the session's working directory, so one-tap remote approval
+just works out of the box.
 
 For **access from anywhere** (cellular, travel), use **Tailscale** so the phone gets
 HTTPS on your private tailnet — see [Guide → Tailscale](docs/GUIDE.md#tailscale-access-from-anywhere).
@@ -94,9 +93,7 @@ Check the install anytime: `dshrc doctor`
 - **Relay mode** — daemon dials out; nothing listens on your machine
 - **Glasses client** — an [Even Realities G2](glasses/README.md) front end to the same daemon
 
-Full usage: **[docs/GUIDE.md](docs/GUIDE.md)** *(still describes the Grok Build ancestor in
-places — being refreshed; the sections on pairing, push, relay, and the service unit are
-backend-agnostic and accurate today)*
+Full usage: **[docs/GUIDE.md](docs/GUIDE.md)**
 
 ---
 
@@ -164,48 +161,46 @@ Step-by-step Tailscale setup (install, Serve, pair, persist, troubleshooting):
 
 ---
 
-## Why the fork
+## How it works
 
-dshrc started as **[grokrc](https://github.com/sandeep-alluru/grokrc)**, remote control
-for xAI's Grok Build CLI. The daemon, ACP client, pairing, push, relay, and phone/PWA/glasses
-clients are all protocol-generic — none of it cares which agent is on the other end of the
-pipe. The parts that *did* name Grok Build specifically were re-pointed at DeepSeek Harness,
-via the unofficial editor adapter [`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp):
+dshrc spawns [`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp) directly over
+stdio — no subcommand or mode flags, since any argv it doesn't recognize as
+`--setup`/`--version`/`--help` falls through to running as an ACP service. The daemon,
+ACP client, pairing, push, relay, and phone/PWA/glasses clients all speak the same typed
+protocol regardless of which agent is on the other end of the pipe, so the whole stack
+above the transport layer never has to know or care that the agent is `deepseek-acp`.
 
-- **Spawn**: `deepseek-acp` (no subcommand — it runs as an ACP service the moment it sees
-  no `--setup`/`--version`/`--help`) instead of `grok agent stdio [flags]`.
-- **Model selection**: the `DEEPSEEK_ACP_MODEL` env var instead of a `--model` flag —
-  deepseek-acp has none.
-- **Approvals, structurally better**: Grok Build ships with `session/request_permission`
-  **off** by default, and dshrc used to ship a `preflight` check specifically to catch that
-  and warn you. `deepseek-acp`'s sandbox always asks before a tool leaves the session's
-  working directory — there is no config key, flag, or env var that turns it off. That
-  whole class of "phone looks paired but the agent is running everything unattended" is not
-  reachable on this backend. See [SECURITY.md](SECURITY.md).
-- **No shared-backend "leader" mode**: Grok Build's `agent leader` let a laptop TUI and a
-  phone drive the *same* running agent process. `deepseek-acp` has no equivalent — every
-  spawned session is its own process — so `--leader` is accepted (for config compatibility)
-  but does nothing here.
+A few things worth knowing about how this backend behaves:
+
+- **Model selection** goes through the `DEEPSEEK_ACP_MODEL` environment variable —
+  `deepseek-acp` has no `--model` CLI flag of its own.
+- **Approvals are structurally guaranteed.** `deepseek-acp`'s sandbox always sends
+  `session/request_permission` before a tool leaves the session's working directory —
+  there is no config key, flag, or environment variable that turns it off. There is no
+  state a phone-controlled session can end up in where tools run unattended without the
+  phone getting a say. See [SECURITY.md](SECURITY.md).
+- **No shared-backend "leader" mode.** `deepseek-acp` has no concept of multiple clients
+  driving one running process — every spawned session is its own process. `--leader` is
+  accepted for config compatibility but does nothing.
 
 ## Known gaps
 
-Ported honestly, not silently: three Grok-specific features read Grok's own on-disk shape
-(`~/.grok/sessions/<cwd>/<id>/summary.json`, a plain `updates.jsonl`, `active_sessions.json`)
-that dsh does not have an equivalent of. Verified against real files on the machine this fork
-was built on: dsh writes one compressed `session.jsonl.zstd` per session and keeps no
-live-process registry at all. Each gap fails **closed** (empty results), never a crash:
+Some capabilities depend on reading dsh's own on-disk session format directly, and that
+reader doesn't exist yet. Verified against real files: dsh writes one compressed
+`session.jsonl.zstd` per session under `$DSH_HOME/sessions/` and keeps no live-process
+registry. Each gap below fails **closed** (empty results), never a crash:
 
 - **`discoverOnDisk()`** — list sessions started outside dshrc. Needs a zstd-decompressing
-  JSONL reader for dsh's format; the schema is known (a `type:"session"` header line, a later
+  JSONL reader; the schema is known (a `type:"session"` header line, a later
   `session/title` event) but the reader isn't written yet.
 - **`activeOnDisk()` / `takeOver()`** — detect and safely reclaim a session another process
-  currently has open. dsh keeps no registry to check, so `takeOver()` quietly degrades to a
-  plain `resume()`, without the "refuse to join a standalone owner" guard the Grok backend had.
+  currently has open. With no registry to check against, `takeOver()` quietly degrades to
+  a plain `resume()`, without a "refuse to join a standalone owner" guard.
 - **Observed mode** (mirror a session started by hand elsewhere) — assumes a plain,
   byte-appended log; untested against dsh's compressed one.
 
 Session **resume of a session dshrc itself created** works today — `deepseek-acp` advertises
-ACP's `loadSession` capability, and the on-disk existence check was corrected to dsh's real
+ACP's `loadSession` capability, and the on-disk existence check matches dsh's real
 directory-naming scheme. PRs closing any of the gaps above are very welcome — the schema
 details are in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
 
@@ -221,21 +216,16 @@ details are in code comments in `src/daemon/session-manager.ts` and `src/daemon/
 | **[Contributing](CONTRIBUTING.md)**      | Dev setup, tests, PRs                                                    |
 | **[Changelog](CHANGELOG.md)**            | Release notes                                                           |
 
-`docs/GUIDE.md` and `docs/ARCHITECTURE.md` still describe the Grok Build ancestor in several
-places (both carry a banner noting this) — the pairing/push/relay/service sections are
-backend-agnostic and accurate; anything naming Grok Build specifically should be read as
-historical unless it also appears in this README.
-
 ---
 
 ## 🔒 Security in one line
 
 Remote control of a coding agent **is** remote code execution. Pair devices, prefer Tailscale
-or relay over open LAN — approvals need no extra configuration on this backend, unlike Grok
-Build's. See [SECURITY.md](SECURITY.md).
+or relay over open LAN — approvals need no extra configuration; the sandbox always asks.
+See [SECURITY.md](SECURITY.md).
 
 ---
 
 ## License
 
-[MIT](LICENSE). A fork of [grokrc](https://github.com/sandeep-alluru/grokrc) (also MIT, same author).
+[MIT](LICENSE).

@@ -117,31 +117,20 @@ threat model that only describes the strongest platform is not a threat model.
 - **Prompt injection into the agent.** If the agent reads a hostile file and decides
   to run something, dshrc faithfully relays the approval request. **Approvals are
   your control** — see below.
-- **Anything at all if approvals are disabled.** This project's Grok Build ancestor
-  had a real way for that to happen silently; see below for why `deepseek-acp`
-  does not.
+- **Anything at all if approvals could be disabled.** They cannot be, on this backend
+  — see below.
 
-## The approvals setting: different story on this backend than on Grok Build
+## Approvals cannot be silently disabled
 
-This project's Grok Build ancestor had two independent layers that both had to
-allow prompting, and Grok shipped with permission prompting **off** by default
-(`[features] support_permission = false`) — so a phone could look paired and
-working while the agent silently ran every tool unattended, in the terminal and
-on the phone alike, unless BOTH the agent's own `config.toml` and dshrc's own
-`permissionMode` were set to prompt. A `preflight` check existed specifically to
-catch and warn about that misconfiguration.
-
-**`deepseek-acp` has no such bypass.** Per its own README: its sandbox (default
+`deepseek-acp` has no bypass for this. Per its own README: its sandbox (default
 `workspace-write`) always sends `session/request_permission` for anything
 outside the session cwd or the system temp dir — there is no config key, CLI
 flag, or environment variable that disables it. `dshrc`'s own `permissionMode`
-field is still accepted (for config-file compatibility with the Grok Build
-era) but has no effect against this backend; `checkPermissionPosture()` in
-`src/daemon/preflight.ts` reflects this — it always reports `willPrompt: true`
-for the deepseek-acp backend rather than scraping a Grok-shaped `config.toml`
-that would not exist. In short: **this specific misconfiguration is not
-possible against deepseek-acp**, which is a stronger guarantee than the layer
-this section used to describe, not a weaker one.
+field exists for config-file compatibility but has no effect against this
+backend; `checkPermissionPosture()` in `src/daemon/preflight.ts` reflects
+this — it always reports `willPrompt: true`. In short: **there is no state a
+phone-controlled session can end up in where tools run unattended without
+the phone getting a say.**
 
 What is still worth knowing: approvals travel over this daemon's own transport
 (WebSocket, or the relay), so the network-exposure section below is where an

@@ -36,10 +36,8 @@ recognize as `--setup` / `--version` / `--help` falls through to ACP service mod
 | Diffs / tools / plan  | Scrape terminal | Structured `session/update` events   |
 
 The phone renders a real UI over a stable event model. When the agent's wire format
-drifts, one normalizer layer changes — not the entire client. This project's Grok
-Build ancestor measured this drift firsthand between Grok versions `0.2.118` and
-`1.0.0` (see `src/acp/protocol.ts`); the same normalizer now sits in front of
-`deepseek-acp` unchanged.
+drifts across versions, one normalizer layer changes — not the entire client (see
+`src/acp/protocol.ts`).
 
 ---
 
@@ -52,37 +50,35 @@ Build ancestor measured this drift firsthand between Grok versions `0.2.118` and
 | **Observed** | Tail `$DSH_HOME/sessions/…/session.jsonl.zstd`      | **Not yet supported** — see below                              |
 
 Session list titles come from the title given at creation, or the project directory
-name — there is no cross-process title source like Grok's `generated_title` to read,
-since [`discoverOnDisk()`](#known-capability-gaps) always returns nothing on this
-backend.
+name — there is no cross-process title source to read, since
+[`discoverOnDisk()`](#known-capability-gaps) always returns nothing on this backend.
 
-**Take over** — on the Grok Build backend, stopped the registered TUI owner (verified
-safe via `active_sessions.json` and a pid check) and resumed as owned. On this backend
-it degrades to a plain resume, because there is no registry to check an owner against.
-**Hand back** — closes the daemon-owned agent and returns resume commands; it no
-longer attempts to open a desktop terminal automatically (there is no `deepseek-acp`
-equivalent of `grok -r <id>`) — the returned commands now run `dshrc term --session <id>`
-on every platform instead.
+**Take over** — exists to safely reclaim a session another process has open, using a
+live-process registry to verify the owning process before touching it. On this backend
+it degrades to a plain resume, because dsh keeps no such registry to check an owner
+against. **Hand back** — closes the daemon-owned agent and returns resume commands; it
+no longer attempts to open a desktop terminal automatically (there is no such affordance
+on this backend) — the returned commands now run `dshrc term --session <id>` on every
+platform instead.
 
 ---
 
 ## Known capability gaps
 
-Three features were written against Grok Build's on-disk shape and were not ported,
-rather than adapted incorrectly. Each fails **closed** (empty results), never a crash:
+Three features depend on reading dsh's own on-disk session format directly, and were
+left unimplemented rather than adapted incorrectly. Each fails **closed** (empty
+results), never a crash:
 
-- **`discoverOnDisk()`** (list sessions dshrc did not itself start) read one
-  `summary.json` file per session directory. `dsh`'s own persistence
-  (`@deepseek-ai/dsh-session-persistence-jsonl`) instead writes one compressed
-  `session.jsonl.zstd` per session — verified against real files on the machine this
-  fork was built on: a `type:"session"` header line carries `id`/`cwd`/`createdAt`,
-  and a later `session/title` event carries the title. The reader for that shape does
-  not exist yet.
-- **`activeOnDisk()` / Take over** read `active_sessions.json`, a live-process registry
-  Grok Build maintained. `dsh` keeps no equivalent, so this daemon has no way to tell
-  whether another `dsh` client currently has a session open.
+- **`discoverOnDisk()`** (list sessions dshrc did not itself start) needs a per-session
+  summary to read. `dsh`'s own persistence (`@deepseek-ai/dsh-session-persistence-jsonl`)
+  instead writes one compressed `session.jsonl.zstd` per session — verified against real
+  files: a `type:"session"` header line carries `id`/`cwd`/`createdAt`, and a later
+  `session/title` event carries the title. The reader for that shape does not exist yet.
+- **`activeOnDisk()` / Take over** need a live-process registry to check against.
+  `dsh` keeps no such registry, so this daemon has no way to tell whether another
+  `dsh` client currently has a session open.
 - **Observed mode** (`SessionObserver`) polls a file's size and reads new bytes as
-  plain UTF-8 text, matching Grok's byte-appended `updates.jsonl`. Whether `dsh`'s
+  plain UTF-8 text, which assumes a plain, byte-appended log. Whether `dsh`'s
   compressed `.zstd` stream is even structured to support that kind of tailing is
   unverified.
 
@@ -132,7 +128,7 @@ packaging/      systemd (Linux), Scheduled Task (Windows)
 2. **Auth on every socket** — bad token closes the connection
 3. **Relay content-blind** — AES-GCM; key in URL fragment (not sent to relay)
 4. **Credentials stay local** — `$DSH_HOME/.credentials.yaml` (or `DEEPSEEK_API_KEY`) used only by the locally spawned `deepseek-acp`
-5. **No silent auto-approve, structurally** — unlike this project's Grok Build ancestor, `deepseek-acp` has no config key, flag, or env var that disables `session/request_permission`; there is no bypass state to accidentally ship in
+5. **No silent auto-approve, structurally** — `deepseek-acp` has no config key, flag, or env var that disables `session/request_permission`; there is no bypass state to accidentally ship in
 6. **Loopback by default** — exposure is opt-in (`--lan`, relay)
 
 Details and reporting: [SECURITY.md](../SECURITY.md).
@@ -149,4 +145,3 @@ Details and reporting: [SECURITY.md](../SECURITY.md).
 6. Relay
 7. Web Push
 
-*(This is grokrc's original build order, kept as-is: the backend swap to DeepSeek Harness came later and touched the transport and session-persistence layers, not this sequence.)*

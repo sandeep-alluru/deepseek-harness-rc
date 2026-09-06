@@ -11,51 +11,45 @@ Pre-1.0: the minor version may change behaviour. Read the notes before upgrading
 
 ## [0.1.0] — 2026-09-05
 
-First release. **dshrc is a fork of [grokrc](https://github.com/sandeep-alluru/grokrc)**,
-re-pointed from xAI's Grok Build CLI to **DeepSeek Harness**, driven through
-[`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp) (an unofficial,
-editor-facing ACP server over the dsh core). Everything protocol-generic —
-the daemon, the ACP client, pairing, Web Push, the relay, the PWA and glasses
-clients — is unchanged from grokrc; only the pieces that named Grok Build
-specifically were re-targeted. See grokrc's own changelog for everything
-before this fork.
+First release. Remote control for DeepSeek Harness — drive a `dsh` coding agent from your
+phone over ACP. dshrc spawns [`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp)
+(an unofficial, editor-facing ACP server over the dsh core) directly over stdio and speaks
+a typed protocol to it — no subcommand or mode flags needed, since `deepseek-acp` runs as
+an ACP service the moment it sees no `--setup`/`--version`/`--help`.
 
-### Changed (backend swap)
+### Core
 
-- `StdioTransport` spawns `deepseek-acp` with no subcommand/mode flags instead
-  of `grok agent stdio [...]` — deepseek-acp needs none. Model selection moved
-  from a `--model` argv flag to the `DEEPSEEK_ACP_MODEL` env var, since
-  deepseek-acp has no CLI model flag.
-- New `--agent-command <path>` flag / `agentCommand` config key (was
-  `grokCommand`), default `deepseek-acp`.
-- `GROK_HOME` → `DSH_HOME` (default `~/.dsh`); the cwd-to-directory encoding
-  used to locate a persisted session was corrected to match dsh's real
-  on-disk scheme (verified against real session files — see
-  `encodeDshCwd` in `src/daemon/session-manager.ts`), not carried over from
-  Grok's `encodeURIComponent`.
-- `checkPermissionPosture()` no longer scrapes a Grok-shaped `config.toml`:
-  `deepseek-acp` has no config surface that disables
-  `session/request_permission` (its sandbox always asks), so this now always
-  reports `willPrompt: true`. See SECURITY.md.
-- `release()`'s auto-relaunch-into-a-new-terminal defaults OFF (was ON) on
-  this backend — it used to open a terminal running `grok -r <id>`, which has
-  no `deepseek-acp` equivalent. `resumeCommands()` now suggests `dshrc term`
-  instead for all three shells.
-- `--leader` / `--permission-mode` are still accepted (config-file
-  compatibility) but are no-ops against `deepseek-acp` — see
-  `src/acp/transport.ts` and `src/daemon/config.ts`.
+- Pairing: short-lived code → long-lived device token, multiple codes outstanding at once
+- Owned sessions: create, prompt, cancel, and one-tap approve — full control from the phone
+- One-tap approval works out of the box: `deepseek-acp`'s sandbox always sends
+  `session/request_permission` before a tool leaves the session's working directory; there
+  is no config key, flag, or environment variable that disables it, so there is no state a
+  phone-controlled session can end up in where tools run unattended. See SECURITY.md.
+- Model selection via the `DEEPSEEK_ACP_MODEL` environment variable
+  (`deepseek-acp` has no CLI model flag); `--agent-command <path>` to point at a specific
+  binary
+- Session resume: `deepseek-acp` advertises ACP's `loadSession` capability, and the on-disk
+  existence check matches dsh's real session-directory naming scheme
+  (`encodeDshCwd` in `src/daemon/session-manager.ts`)
+- Self-hosted Web Push (VAPID) — no third-party push cloud
+- Outbound relay mode — the daemon dials out, nothing listens on your machine; AES-GCM
+  end-to-end, the key lives in the URL fragment
+- Terminal client (`dshrc term`) driving the same session as the phone
+- PWA client (iOS + Android) and an Even Realities G2 glasses client
+- systemd user unit (Linux) and Scheduled Task scripts (Windows)
 
 ### Known gaps (tracked as issues, not silently claimed)
 
-- **`discoverOnDisk()`** (list every persisted session, including ones
-  started outside dshrc) always returns `[]` on this backend: dsh persists
-  sessions as one compressed `session.jsonl.zstd` per session, not Grok's
-  `summary.json`. Fails closed (empty list), not a crash.
-- **`activeOnDisk()` / `takeOver()`**: dsh keeps no `active_sessions.json`-style
-  live-process registry, so this daemon cannot tell whether another dsh
-  client already has a given session open. `takeOver()` degrades to a plain
-  `resume()`, silently losing the "refuse to join a standalone owner" guard
-  the Grok backend had.
-- **Observed mode** (mirror a session started by hand elsewhere,
-  `SessionObserver`) assumes a plain, byte-appended JSONL log; whether dsh's
-  compressed `.zstd` stream even supports that kind of tailing is unverified.
+Some capabilities depend on reading dsh's own on-disk session format directly, and that
+reader doesn't exist yet:
+
+- **`discoverOnDisk()`** (list every persisted session, including ones started outside
+  dshrc) always returns `[]`: dsh persists sessions as one compressed `session.jsonl.zstd`
+  per session under `$DSH_HOME/sessions/`, and there is no reader for that shape yet. Fails
+  closed (empty list), not a crash.
+- **`activeOnDisk()` / `takeOver()`**: dsh keeps no live-process registry, so this daemon
+  cannot tell whether another dsh client already has a given session open. `takeOver()`
+  degrades to a plain `resume()`, without a "refuse to join a standalone owner" guard.
+- **Observed mode** (mirror a session started by hand elsewhere, `SessionObserver`) assumes
+  a plain, byte-appended JSONL log; whether dsh's compressed `.zstd` stream even supports
+  that kind of tailing is unverified.
