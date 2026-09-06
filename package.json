@@ -30,7 +30,7 @@
     "web-push"
   ],
   "bin": {
-    "dshrc": "./dist/cli.js"
+    "dshrc": "dist/cli.js"
   },
   "engines": {
     "node": ">=20"
