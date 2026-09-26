@@ -229,3 +229,11 @@ See [SECURITY.md](SECURITY.md).
 ## License
 
 [MIT](LICENSE).
+
+<!-- BEGIN command-center-note v1 — managed by ~/AgentHub/2ndbrain/ops/onboard_projects.py -->
+> **This project in the Command Center.** It is addressable as tenant `t.deepseek-harness-rc`, its projects are
+> `p.deepseek-harness-rc.<project>`, and its work is visible at
+> <http://127.0.0.1:3100/2nd-brain/command-center>. Before adding a service or a workstream here,
+> read `~/AgentHub/2ndbrain/ops/PROJECT-ONBOARDING.md` — a service must be started through
+> `ops/runjob.sh`, or its work cannot be attributed to a session.
+<!-- END command-center-note -->
