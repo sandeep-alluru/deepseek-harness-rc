@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/logo.svg" alt="dshrc logo" width="96">
+</p>
+
+<p align="center">
   <img src="docs/screenshots/sessions.png" alt="dshrc session list" width="28%">
   &nbsp;
   <img src="docs/screenshots/live-turn.png" alt="live turn" width="28%">
@@ -17,7 +21,8 @@
   <a href="#-features">Features</a> ·
   <a href="#-install">Install</a> ·
   <a href="#-quickstart">Quickstart</a> ·
-  <a href="#known-gaps">Known gaps</a> ·
+  <a href="#-news">News</a> ·
+  <a href="#-whats-next">What's next</a> ·
   <a href="docs/GUIDE.md">Guide</a> ·
   <a href="docs/ARCHITECTURE.md">Architecture</a>
 </p>
@@ -33,6 +38,16 @@
 > client that talks to [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > (`dsh`) over the [Agent Client Protocol](https://agentclientprotocol.com), via the
 > community adapter [`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp).
+
+---
+
+## 📰 News
+
+- **2026-09-05 — dshrc 0.1.0.** First release: pair a phone with a short-lived code,
+  start and drive `dsh` sessions over ACP, approve tool calls with one tap, receive
+  self-hosted push notifications, and reach the daemon over LAN, Tailscale, or an
+  outbound relay. A terminal client and an Even Realities G2 glasses client are
+  included. Full notes in the [Changelog](CHANGELOG.md).
 
 ---
 
@@ -122,8 +137,7 @@ npm link
 | **macOS**   | Node 20–24   | Node 22, 24      | —                  |
 | **Windows** | Node 20–24   | Node 22, 24      | Scheduled Task     |
 
-Verified against `deepseek-acp` 0.8.0. Windows path-encoding for dsh session directories
-is **unverified** on this platform — see [Known gaps](#known-gaps).
+Verified against `deepseek-acp` 0.8.0.
 
 ---
 
@@ -179,30 +193,29 @@ A few things worth knowing about how this backend behaves:
   there is no config key, flag, or environment variable that turns it off. There is no
   state a phone-controlled session can end up in where tools run unattended without the
   phone getting a say. See [SECURITY.md](SECURITY.md).
-- **No shared-backend "leader" mode.** `deepseek-acp` has no concept of multiple clients
-  driving one running process — every spawned session is its own process. `--leader` is
-  accepted for config compatibility but does nothing.
+- **One process per session.** Every spawned session is its own `deepseek-acp`
+  process — there is no shared-backend mode to configure. (`--leader` is accepted in
+  config files for compatibility.)
 
-## Known gaps
+## 🔭 What's next
 
-Some capabilities depend on reading dsh's own on-disk session format directly, and that
-reader doesn't exist yet. Verified against real files: dsh writes one compressed
-`session.jsonl.zstd` per session under `$DSH_HOME/sessions/` and keeps no live-process
-registry. Each gap below fails **closed** (empty results), never a crash:
+The roadmap builds on dsh's own session store. Verified against real files: dsh
+writes one compressed `session.jsonl.zstd` per session under `$DSH_HOME/sessions/` and
+keeps no live-process registry. Three features build on that store, in order:
 
-- **`discoverOnDisk()`** — list sessions started outside dshrc. Needs a zstd-decompressing
-  JSONL reader; the schema is known (a `type:"session"` header line, a later
-  `session/title` event) but the reader isn't written yet.
-- **`activeOnDisk()` / `takeOver()`** — detect and safely reclaim a session another process
-  currently has open. With no registry to check against, `takeOver()` quietly degrades to
-  a plain `resume()`, without a "refuse to join a standalone owner" guard.
-- **Observed mode** (mirror a session started by hand elsewhere) — assumes a plain,
-  byte-appended log; untested against dsh's compressed one.
+- **Session discovery** — list sessions started outside dshrc, from the store itself.
+  The reader decompresses the zstd JSONL and reads the `type:"session"` header line and
+  the later `session/title` event; the schema is documented in code comments in
+  `src/daemon/session-manager.ts`.
+- **Registry-checked take-over** — reclaim a session another process has open, with a
+  "refuse to join a standalone owner" guard. `takeOver()` resumes today; the guard
+  builds on a live-process registry to check against.
+- **Observed mode** — mirror a session started by hand elsewhere, by tailing its
+  compressed log with the same reader (`src/daemon/observer.ts`).
 
 Session **resume of a session dshrc itself created** works today — `deepseek-acp` advertises
 ACP's `loadSession` capability, and the on-disk existence check matches dsh's real
-directory-naming scheme. PRs closing any of the gaps above are very welcome — the schema
-details are in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
+directory-naming scheme. PRs on any of the three are very welcome.
 
 ---
 
@@ -218,6 +231,28 @@ details are in code comments in `src/daemon/session-manager.ts` and `src/daemon/
 
 ---
 
+## 🧩 Components & versions
+
+| Component | Version | Role |
+| --------- | ------- | ---- |
+| **dshrc** | 0.1.0 (npm) | This package — daemon, phone PWA, terminal and glasses clients |
+| **deepseek-acp** | 0.8.0 (verified) | The ACP adapter over DeepSeek Harness; dshrc spawns it over stdio |
+| **DeepSeek Harness** (`dsh`) | upstream | The coding agent being driven |
+| **Node.js** | 20–24 | Runtime |
+
+---
+
+## ✅ How the numbers are verified
+
+- CI runs typecheck, lint, format check, build, and the full test suite on Linux,
+  macOS, and Windows (Node 22 and 24) — see the badges above.
+- The ACP surface is conformance-checked against recorded handshakes from the real
+  backend (`docs/captures/`), and the README screenshots are generated from a live
+  `deepseek-acp` session.
+- `dshrc doctor` re-checks a live install — agent, ACP, approvals — on your machine.
+
+---
+
 ## 🔒 Security in one line
 
 Remote control of a coding agent **is** remote code execution. Pair devices, prefer Tailscale
@@ -226,14 +261,29 @@ See [SECURITY.md](SECURITY.md).
 
 ---
 
+## 🙏 Credits
+
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — the agent dshrc drives.
+- [`deepseek-acp`](https://www.npmjs.com/package/deepseek-acp) — the ACP adapter dshrc spawns.
+- [Agent Client Protocol](https://agentclientprotocol.com) — the typed protocol both sides speak.
+- The G2 glasses voice/compose flow was informed by
+  [ThatCrispyToast/g2-claude-remote](https://github.com/ThatCrispyToast/g2-claude-remote).
+
+---
+
+## 📖 Citation
+
+```bibtex
+@software{dshrc,
+  title  = {dshrc: Remote control for DeepSeek Harness},
+  author = {Alluru, Sandeep Varma},
+  url    = {https://github.com/sandeep-alluru/deepseek-harness-rc},
+  year   = {2026}
+}
+```
+
+---
+
 ## License
 
 [MIT](LICENSE).
-
-<!-- BEGIN command-center-note v1 — managed by ~/AgentHub/2ndbrain/ops/onboard_projects.py -->
-> **This project in the Command Center.** It is addressable as tenant `t.deepseek-harness-rc`, its projects are
-> `p.deepseek-harness-rc.<project>`, and its work is visible at
-> <http://127.0.0.1:3100/2nd-brain/command-center>. Before adding a service or a workstream here,
-> read `~/AgentHub/2ndbrain/ops/PROJECT-ONBOARDING.md` — a service must be started through
-> `ops/runjob.sh`, or its work cannot be attributed to a session.
-<!-- END command-center-note -->

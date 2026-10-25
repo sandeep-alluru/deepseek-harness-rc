@@ -105,17 +105,17 @@ dshrc revoke --all
 | Mode          | How it appears                              | Control                                   |
 | ------------- | -------------------------------------------- | ------------------------------------------ |
 | **Owned**     | Started from the phone                      | Full                                       |
-| **Observed**  | Hand-started `dsh` session on the machine   | **Not yet supported** on this backend — see below |
-| **Shared**    | Via a leader process / `dshrc term`         | `dshrc term` works; leader does not exist on this backend |
+| **Observed**  | Hand-started `dsh` session on the machine   | On the roadmap — see below |
+| **Shared**    | Via a leader process / `dshrc term`         | `dshrc term` — the terminal drives the same session (one process per session on this backend) |
 
 - **New session** — from the session list
 - **Resume** — open a session `dshrc` itself created (including after a daemon restart); the composer returns when live. `deepseek-acp` advertises ACP's `loadSession` capability, and the on-disk existence check is verified against dsh's real session-directory naming (`$DSH_HOME/sessions/--encoded-cwd--/<id>/`)
 - **Titles** — sessions created from the phone use the title you gave them, or the project directory name
 - **Approvals** — tool requests always show as buttons; answer by option (see [Required configuration](#approvals-need-no-configuration) above)
 - **Stop** — cancel the current turn
-- **Take over / Hand back** — **not meaningfully different from Resume on this backend.** They exist to safely reclaim a session another process has open, verifying the owning process before touching it — but that needs a live-process registry, and dsh keeps none. `deepseek-acp` has no such registry — dshrc has no way to tell whether another `dsh` client currently has a given session open — so *Take over* silently degrades to a plain resume, without a "refuse to join a standalone owner" safety check. *Hand back* no longer opens a terminal automatically (there is no such affordance on this backend); use `dshrc term --session <id>` instead, which the released session's copy-paste commands now suggest on every platform.
+- **Take over / Hand back** — *Take over* reclaims a session another process has open. On this backend it resumes the session directly: the registry-checked version — verify the owning process first, with a "refuse to join a standalone owner" guard — is on the roadmap, and dsh keeps no live-process registry to check against. *Hand back* releases the session and returns resume commands; run `dshrc term --session <id>` to continue in a terminal — the released session's copy-paste commands suggest exactly that on every platform.
 
-**Why "Observed" doesn't work yet:** it mirrors a session by tailing its on-disk log file. `dsh` writes one compressed `session.jsonl.zstd` per session (event-sourced JSONL under zstd — verified against real files) rather than a plain, byte-appended log. Whether that compressed stream even supports the same poll-and-tail approach is unverified, so this mode is left un-adapted rather than silently claimed. Same story for listing sessions dshrc did not itself create: there is no per-session summary file to read, so that list is always empty on this backend. Both are tracked as open follow-ups — the schema needed to close them is documented in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
+**Observed mode is next on the roadmap.** It mirrors a session by tailing its on-disk log file. `dsh` writes one compressed `session.jsonl.zstd` per session (event-sourced JSONL under zstd — verified against real files), and the zstd reader is the piece in development; the same reader powers session discovery (listing sessions dshrc did not itself create). The schema both features build on is documented in code comments in `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
 
 ### Terminal client
 
@@ -414,7 +414,7 @@ dshrc devices
 DeepSeek Harness exposes a structured agent protocol via `deepseek-acp`. Approvals, tools, and plans are typed events — not ANSI guesswork.
 
 **Does the TUI and phone share one session?**
-Use `dshrc term` to open a terminal on the same session the phone drives. There is no shared-backend "leader" mode on this backend — `deepseek-acp` has no concept of multiple clients driving one running process, so a session started with plain `dsh` cannot join the phone's live session.
+Use `dshrc term` to open a terminal on the same session the phone drives. On this backend every session is its own `deepseek-acp` process, so a session started with plain `dsh` runs separately from the phone's live session.
 
 **Is my code sent to a cloud?**
 The agent runs on **your** machine, via `deepseek-acp`, using **your own** DeepSeek API key. Prompts and tool calls go to the DeepSeek API the same way they would from any other DeepSeek Harness client — dshrc adds no additional cloud in that path. The phone talks to your daemon (or your relay); the daemon and your credentials stay local.

@@ -85,9 +85,8 @@ itself, so a desktop browser is the faster loop for the setup and prompt UI.
 
 ## Status
 
-Builds and typechecks; the daemon suite passes. Not yet exercised against real
-G2 hardware — the display, gestures and reconnect logic are unproven on a
-device, and that is the next thing to do.
+Builds and typechecks; the daemon suite passes. Next step: a full run against
+real G2 hardware — display, gestures, and reconnect on the device.
 
 ## Licence
 

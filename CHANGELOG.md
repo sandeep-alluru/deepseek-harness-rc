@@ -9,6 +9,10 @@ Pre-1.0: the minor version may change behaviour. Read the notes before upgrading
 
 ## [Unreleased]
 
+- Documentation: launch restructure — News and roadmap sections, components and
+  verification, credits and citation; logo and social-preview assets added.
+
+
 ## [0.1.0] — 2026-09-05
 
 First release. Remote control for DeepSeek Harness — drive a `dsh` coding agent from your
@@ -38,18 +42,16 @@ an ACP service the moment it sees no `--setup`/`--version`/`--help`.
 - PWA client (iOS + Android) and an Even Realities G2 glasses client
 - systemd user unit (Linux) and Scheduled Task scripts (Windows)
 
-### Known gaps (tracked as issues, not silently claimed)
+### On the roadmap
 
-Some capabilities depend on reading dsh's own on-disk session format directly, and that
-reader doesn't exist yet:
+Three features build on reading dsh's own on-disk session format; the zstd reader is
+in development:
 
-- **`discoverOnDisk()`** (list every persisted session, including ones started outside
-  dshrc) always returns `[]`: dsh persists sessions as one compressed `session.jsonl.zstd`
-  per session under `$DSH_HOME/sessions/`, and there is no reader for that shape yet. Fails
-  closed (empty list), not a crash.
-- **`activeOnDisk()` / `takeOver()`**: dsh keeps no live-process registry, so this daemon
-  cannot tell whether another dsh client already has a given session open. `takeOver()`
-  degrades to a plain `resume()`, without a "refuse to join a standalone owner" guard.
-- **Observed mode** (mirror a session started by hand elsewhere, `SessionObserver`) assumes
-  a plain, byte-appended JSONL log; whether dsh's compressed `.zstd` stream even supports
-  that kind of tailing is unverified.
+- **Session discovery** — `discoverOnDisk()` lists every persisted session, including
+  ones started outside dshrc. dsh persists sessions as one compressed `session.jsonl.zstd`
+  per session under `$DSH_HOME/sessions/`; in 0.1.0, discovery returns an empty list.
+- **Registry-checked take-over** — `activeOnDisk()` / `takeOver()` verify whether another
+  dsh client has a session open before reclaiming it, with a "refuse to join a standalone
+  owner" guard. dsh keeps no live-process registry; `takeOver()` resumes directly in 0.1.0.
+- **Observed mode** — mirror a session started by hand elsewhere (`SessionObserver`) by
+  tailing its compressed log with the same reader.

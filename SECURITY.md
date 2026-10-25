@@ -2,7 +2,7 @@
 
 dshrc gives a phone the ability to run a coding agent on your machine. That makes
 its security properties load-bearing, not decorative. This document states what it
-actually guarantees, what it does not, and how to report a problem.
+actually guarantees, where its boundaries are, and how to report a problem.
 
 ## Reporting a vulnerability
 

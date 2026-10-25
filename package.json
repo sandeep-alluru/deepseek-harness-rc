@@ -1,7 +1,7 @@
 {
   "name": "dshrc",
   "version": "0.1.0",
-  "description": "Remote control for DeepSeek Harness — drive your dsh coding agent from your phone over ACP (via deepseek-acp), not a screen scrape.",
+  "description": "Drive your DeepSeek Harness (dsh) coding agent from your phone — typed ACP protocol, one-tap approvals, self-hosted push notifications, no screen scraping.",
   "type": "module",
   "license": "MIT",
   "author": "Sandeep Alluru",

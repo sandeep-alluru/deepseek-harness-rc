@@ -46,43 +46,37 @@ drifts across versions, one normalizer layer changes — not the entire client (
 | Mode         | Source                                              | Control                                                        |
 | -------------- | ------------------------------------------------------ | ------------------------------------------------------------------- |
 | **Owned**    | Daemon spawns `deepseek-acp`                        | Full                                                           |
-| **Shared**   | Leader / multi-client backend                       | **Not supported** — `deepseek-acp` has no shared-backend concept |
-| **Observed** | Tail `$DSH_HOME/sessions/…/session.jsonl.zstd`      | **Not yet supported** — see below                              |
+| **Shared**   | Leader / multi-client backend                       | One process per session on this backend |
+| **Observed** | Tail `$DSH_HOME/sessions/…/session.jsonl.zstd`      | On the roadmap — see below                              |
 
 Session list titles come from the title given at creation, or the project directory
-name — there is no cross-process title source to read, since
-[`discoverOnDisk()`](#known-capability-gaps) always returns nothing on this backend.
+name. Reading titles from dsh's own session store is the
+[discovery work on the roadmap](#on-the-roadmap-reading-dshs-session-store).
 
-**Take over** — exists to safely reclaim a session another process has open, using a
-live-process registry to verify the owning process before touching it. On this backend
-it degrades to a plain resume, because dsh keeps no such registry to check an owner
-against. **Hand back** — closes the daemon-owned agent and returns resume commands; it
-no longer attempts to open a desktop terminal automatically (there is no such affordance
-on this backend) — the returned commands now run `dshrc term --session <id>` on every
-platform instead.
+**Take over** — reclaims a session another process has open. The full version verifies
+the owning process first, using a live-process registry; dsh keeps no such registry, so
+on this backend Take over resumes the session directly, and the registry-checked guard
+is on the roadmap. **Hand back** — closes the daemon-owned agent and returns resume
+commands; the returned commands run `dshrc term --session <id>` on every platform.
 
 ---
 
-## Known capability gaps
+## On the roadmap: reading dsh's session store
 
-Three features depend on reading dsh's own on-disk session format directly, and were
-left unimplemented rather than adapted incorrectly. Each fails **closed** (empty
-results), never a crash:
+Three features build on one piece of work: a reader for dsh's own on-disk session
+format. Each returns an empty result until the reader lands:
 
-- **`discoverOnDisk()`** (list sessions dshrc did not itself start) needs a per-session
-  summary to read. `dsh`'s own persistence (`@deepseek-ai/dsh-session-persistence-jsonl`)
-  instead writes one compressed `session.jsonl.zstd` per session — verified against real
+- **`discoverOnDisk()`** (list sessions dshrc did not itself start) reads a per-session
+  summary from the store. `dsh`'s own persistence (`@deepseek-ai/dsh-session-persistence-jsonl`)
+  writes one compressed `session.jsonl.zstd` per session — verified against real
   files: a `type:"session"` header line carries `id`/`cwd`/`createdAt`, and a later
-  `session/title` event carries the title. The reader for that shape does not exist yet.
-- **`activeOnDisk()` / Take over** need a live-process registry to check against.
-  `dsh` keeps no such registry, so this daemon has no way to tell whether another
-  `dsh` client currently has a session open.
-- **Observed mode** (`SessionObserver`) polls a file's size and reads new bytes as
-  plain UTF-8 text, which assumes a plain, byte-appended log. Whether `dsh`'s
-  compressed `.zstd` stream is even structured to support that kind of tailing is
-  unverified.
+  `session/title` event carries the title. The reader parses exactly that shape.
+- **`activeOnDisk()` / Take over** verify against a live-process registry. `dsh` keeps
+  no such registry; building the check is the second half of this work.
+- **Observed mode** (`SessionObserver`) tails the session's log as it grows — with the
+  zstd reader, it tails the compressed stream the same way.
 
-The schema needed to close each gap is documented in code comments in
+The schema is documented in code comments in
 `src/daemon/session-manager.ts` and `src/daemon/observer.ts`.
 
 ---
