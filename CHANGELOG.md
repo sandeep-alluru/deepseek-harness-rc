@@ -11,6 +11,11 @@ Pre-1.0: the minor version may change behaviour. Read the notes before upgrading
 
 - Documentation: launch restructure — News and roadmap sections, components and
   verification, credits and citation; logo and social-preview assets added.
+- The session view now opens as a control surface: status first, the approvals
+  that need you pinned at the top, one-line activity, and the agent's answers.
+  The complete transcript is one tap away under "Full view".
+- Screenshots in the README and docs are captured from dshrc itself, driving a
+  live DeepSeek Harness session.
 
 
 ## [0.1.0] — 2026-09-05

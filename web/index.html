@@ -264,6 +264,30 @@
     70% { box-shadow: 0 0 0 8px rgba(110, 168, 254, 0); }
     100% { box-shadow: 0 0 0 0 rgba(110, 168, 254, 0); }
   }
+
+  /* ─── control view (the default session presentation) ───────────────────
+     The session as a control surface: status up top, pending approvals
+     pinned where the thumb is, one-line activity, and the agent's answers.
+     The full transcript stays one tap away ("Full view" in the header). */
+  #approval-zone { position: sticky; top: 0; z-index: 6; }
+  #approval-zone:empty { display: none; }
+  .approval .input-line {
+    color: var(--dim); font-size: 13px; margin-bottom: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .control-view .resume-bar { padding: 8px; margin-bottom: 10px; }
+  .control-view .resume-bar .sub { display: none; }
+  .control-view .thinking.slim {
+    border-left: 0; padding: 2px 0; margin-bottom: 8px;
+    font-style: italic; font-size: 12px;
+  }
+  .control-view .msg { margin-bottom: 8px; }
+  /* An answered approval is a record, not a decision — collapse it. */
+  .control-view .approval.resolved { padding: 8px 14px; }
+  .control-view .approval.resolved .input-line,
+  .control-view .approval.resolved .why,
+  .control-view .approval.resolved .row { display: none; }
+  .control-view .approval.resolved h3 { margin: 0; font-size: 13px; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -272,6 +296,7 @@
   <span class="dot" id="conn"></span>
   <span class="title" id="title">dshrc</span>
   <button id="back" hidden>Sessions</button>
+  <button id="view-toggle" hidden>Full view</button>
 </header>
 
 <div class="unreachable-bar" id="unreachable" hidden role="alert">

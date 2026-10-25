@@ -18,6 +18,7 @@ const ASSET_VERSION = new URL(import.meta.url).searchParams.get('v') ?? 'dev';
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'dshrc.token';
 const RELAY_KEY = 'dshrc.relay';
+const VIEW_KEY = 'dshrc.viewMode';
 
 /**
  * Relay awareness.
@@ -109,6 +110,7 @@ const el = {
   conn: $('conn'),
   title: $('title'),
   back: $('back'),
+  viewToggle: $('view-toggle'),
   unreachable: $('unreachable'),
   unreachableRetry: $('unreachable-retry'),
   vPair: $('v-pair'),
@@ -140,12 +142,25 @@ const state = {
   planNode: null,
   busy: false,
   backoff: 500,
-  /** Daemon shares one `grok agent leader` backend — set from the ready frame. */
+  /** Set from the ready frame (compat field — deepseek-acp has no shared-backend leader mode). */
   leaderMode: false,
   /** The Resume button awaiting a reply, so a refusal can restore it. */
   pendingResume: null,
   /** Last successful hand-back — shown on the list until dismissed. */
   lastRelease: null,
+  /**
+   * Session presentation. 'control' (the default) renders the session as a
+   * control surface — status, pending approvals, one-line activity, answers —
+   * instead of mirroring the whole session transcript into the browser.
+   * 'full' renders the complete transcript, as the client always did before.
+   */
+  viewMode: (() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'full' ? 'full' : 'control';
+    } catch {
+      return 'control';
+    }
+  })(),
 };
 
 /* ─── views ──────────────────────────────────────────────────────────────── */
@@ -156,7 +171,30 @@ function show(view) {
   const inSession = view === el.vSession;
   el.composer.hidden = !inSession;
   el.back.hidden = !inSession;
+  if (el.viewToggle) el.viewToggle.hidden = !inSession;
 }
+
+function applyViewMode() {
+  document.body.classList.toggle('control-view', state.viewMode === 'control');
+  if (el.viewToggle) {
+    el.viewToggle.textContent = state.viewMode === 'control' ? 'Full view' : 'Control view';
+  }
+}
+
+el.viewToggle?.addEventListener('click', () => {
+  state.viewMode = state.viewMode === 'control' ? 'full' : 'control';
+  try {
+    localStorage.setItem(VIEW_KEY, state.viewMode);
+  } catch {
+    /* private mode — the choice just won't persist */
+  }
+  applyViewMode();
+  // Re-render the open session in the new mode — the daemon replays history
+  // on open, and every renderer branches on the mode.
+  if (state.current) sendMsg({ t: 'open', sessionId: state.current.id, cwd: state.current.cwd });
+});
+
+applyViewMode();
 
 /**
  * This client is older than the daemon it is talking to.
@@ -880,8 +918,8 @@ function renderTranscript(events) {
  * this closes the session here and hands over the command to reopen it there.
  *
  * Most of the time you do not need this — `dshrc term --session <id>` drives the
- * same session without anyone giving anything up. It is only for getting Grok's
- * own TUI back.
+ * same session without anyone giving anything up. It is only for getting the
+ * session back into a terminal.
  */
 function renderHandBackBar(s) {
   const bar = document.createElement('div');
@@ -1046,12 +1084,24 @@ function applyEvent(ev, replaying = false) {
     }
 
     case 'thinking': {
-      // Quiet by design: Grok's reasoning can be thousands of tokens and the
-      // terminal TUI barely shows it. Only the finished block is useful, and
+      // Quiet by design: the agent's reasoning can be thousands of tokens and
+      // the terminal barely shows it. Only the finished block is useful, and
       // even that is collapsed so the answer stays on screen.
       if (!ev.final) break;
       const text = (ev.text ?? '').trim();
       if (!text) break;
+      if (state.viewMode === 'control') {
+        // Control view: reasoning happened — that is all the surface shows.
+        // The body is the agent's internal monologue, not a control.
+        if (!state.thinkingNode) {
+          const marker = document.createElement('div');
+          marker.className = 'thinking slim';
+          marker.textContent = 'Reasoning';
+          el.vSession.append(marker);
+          state.thinkingNode = marker;
+        }
+        break;
+      }
       if (!state.thinkingNode) {
         const wrap = document.createElement('details');
         wrap.className = 'thinking';
@@ -1082,6 +1132,11 @@ function applyEvent(ev, replaying = false) {
       if (node) {
         node.classList.add('resolved');
         node.querySelectorAll('button').forEach((b) => (b.disabled = true));
+        // Control view: the pinned zone is only for decisions still needed.
+        // An answered card drops into the feed as a dimmed record.
+        if (state.viewMode === 'control' && node.parentElement?.id === 'approval-zone') {
+          el.vSession.append(node);
+        }
       }
       break;
     }
@@ -1107,8 +1162,8 @@ function applyEvent(ev, replaying = false) {
       if (!replaying && ev.fatal) setBusy(false, 'error');
       break;
 
-    // commands / mode / raw: deliberately ignored — metadata Grok's TUI does
-    // not paint, and the daemon no longer ships them on the wire.
+    // commands / mode / raw: deliberately ignored — metadata the terminal
+    // does not paint, and the daemon no longer ships them on the wire.
   }
   if (!replaying) scrollDown();
 }
@@ -1217,6 +1272,34 @@ function upsertPlan(ev) {
   state.planNode.replaceChildren(ul);
 }
 
+/** One line that says what an approval is about, without the raw payload. */
+function summarizeInput(input) {
+  if (typeof input === 'string') return input.replace(/\s+/g, ' ').slice(0, 140);
+  if (input && typeof input === 'object') {
+    const path = input.file_path ?? input.path ?? input.filePath;
+    const content = input.content ?? input.text ?? input.command;
+    const parts = [];
+    if (typeof path === 'string') parts.push(path);
+    if (typeof content === 'string') parts.push(content.replace(/\s+/g, ' ').slice(0, 80));
+    if (parts.length) return parts.join(' — ');
+    return JSON.stringify(input).slice(0, 140);
+  }
+  return String(input).slice(0, 140);
+}
+
+/** The pinned zone at the top of the session view where pending approvals live in control view. */
+function approvalZone() {
+  let zone = el.vSession.querySelector('#approval-zone');
+  if (!zone) {
+    zone = document.createElement('div');
+    zone.id = 'approval-zone';
+    const bar = el.vSession.querySelector('.resume-bar');
+    if (bar) bar.after(zone);
+    else el.vSession.prepend(zone);
+  }
+  return zone;
+}
+
 function upsertApproval(ev) {
   if (state.approvalNodes.has(ev.requestId)) return;
 
@@ -1237,9 +1320,18 @@ function upsertApproval(ev) {
   }
 
   if (ev.input !== undefined && ev.input !== null) {
-    const pre = document.createElement('pre');
-    pre.textContent = typeof ev.input === 'string' ? ev.input : JSON.stringify(ev.input, null, 2);
-    box.append(pre);
+    if (state.viewMode === 'control') {
+      // Control view shows WHAT is being approved — the target and a glimpse
+      // of the content — not the raw tool payload dumped as JSON.
+      const line = document.createElement('div');
+      line.className = 'input-line';
+      line.textContent = summarizeInput(ev.input);
+      box.append(line);
+    } else {
+      const pre = document.createElement('pre');
+      pre.textContent = typeof ev.input === 'string' ? ev.input : JSON.stringify(ev.input, null, 2);
+      box.append(pre);
+    }
   }
 
   const row = document.createElement('div');
@@ -1279,7 +1371,8 @@ function upsertApproval(ev) {
   box.append(row);
 
   state.approvalNodes.set(ev.requestId, box);
-  el.vSession.append(box);
+  if (state.viewMode === 'control') approvalZone().append(box);
+  else el.vSession.append(box);
   scrollDown();
 
   // Buzz — this is the moment the whole product exists for.
